@@ -1,5 +1,5 @@
 import logging
-from solana.keypair import Keypair
+from solders.keypair import Keypair
 from cryptography.fernet import Fernet
 from typing import Tuple
 
