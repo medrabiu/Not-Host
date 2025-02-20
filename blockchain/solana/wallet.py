@@ -1,7 +1,8 @@
 import logging
-from solders.keypair import Keypair
 from cryptography.fernet import Fernet
 from typing import Tuple
+from solana.keypair import Keypair
+
 
 logger = logging.getLogger(__name__)
 
