@@ -5,12 +5,17 @@ import logging
 logger = logging.getLogger(__name__)
 
 def get_session() -> Session:
-    """Create a new database session with proper cleanup."""
-    session = SessionFactory()
+    """
+    Create a new database session.
+
+    Returns:
+        A SQLAlchemy Session object. Caller must close it manually.
+    """
     try:
-        yield session
-    finally:
-        session.close()
+        return SessionFactory()
+    except Exception as e:
+        logger.error(f"Failed to create session: {str(e)}")
+        raise
 
 def get_user(telegram_id: str, session: Session) -> User | None:
     """
