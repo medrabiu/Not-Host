@@ -16,8 +16,8 @@ TELEGRAM_TOKEN = "7754246943:AAFT82vJoG8g0zVb10HeSRfrhP6TSh0AyNM"
 MAIN_MENU = InlineKeyboardMarkup([
     [InlineKeyboardButton("Buy", callback_data="buy"),
      InlineKeyboardButton("Sell", callback_data="sell")],
-    [InlineKeyboardButton("Wallet", callback_daata="wallet"),
-     InlineKeyboardButton("Help", callback_data="help")]
+    [InlineKeyboardButton("Wallet", callback_data=""),
+     InlineKeyboardButton("Help", callback_data="helpwallet")]
 ])
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
