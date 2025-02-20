@@ -1,0 +1,87 @@
+import logging
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
+
+# Configure logging for production debugging
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.INFO
+)
+logger = logging.getLogger(__name__)
+
+# Bot token (move to config later)
+TELEGRAM_TOKEN = "7754246943:AAFT82vJoG8g0zVb10HeSRfrhP6TSh0AyNM"
+
+# Define main menu keyboard
+MAIN_MENU = InlineKeyboardMarkup([
+    [InlineKeyboardButton("Buy", callback_data="buy"),
+     InlineKeyboardButton("Sell", callback_data="sell")],
+    [InlineKeyboardButton("Wallet", callback_daata="wallet"),
+     InlineKeyboardButton("Help", callback_data="help")]
+])
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Handle the /start command, greet the user, and display the main menu.
+
+    Edge Cases:
+    - Handle missing user info (e.g., Telegram API issues).
+    - Prevent duplicate messages if command is spammed.
+    """
+    try:
+        user = update.effective_user
+        if not user:
+            logger.error("No user info available in update")
+            await update.message.reply_text("Oops! Something went wrong. Try again later.")
+            return
+
+        # Prevent duplicate starts by checking if message is already processed
+        if context.user_data.get("last_start") == update.message.message_id:
+            logger.info(f"Duplicate /start from {user.id}")
+            return
+        context.user_data["last_start"] = update.message.message_id
+
+        welcome_msg = (
+            f"Welcome, {user.first_name}! 🚀\n"
+            "I'm your cross-chain trading bot for TON and Solana.\n"
+            "What would you like to do?"
+        )
+        await update.message.reply_text(welcome_msg, reply_markup=MAIN_MENU)
+        logger.info(f"Started bot for user {user.id}")
+
+    except Exception as e:
+        logger.error(f"Error in start handler: {str(e)}")
+        await update.message.reply_text("An error occurred. Please try again.")
+
+async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Handle inline button clicks (stub for now).
+
+    Edge Cases:
+    - Invalid callback data.
+    """
+    query = update.callback_query
+    await query.answer()  # Acknowledge the callback
+
+    if query.data in ["buy", "sell", "wallet", "help"]:
+        await query.edit_message_text(f"You clicked {query.data}! Feature coming soon.")
+    else:
+        logger.warning(f"Unknown callback data: {query.data}")
+        await query.edit_message_text("Invalid option. Use the menu below.", reply_markup=MAIN_MENU)
+
+def main() -> None:
+    """Initialize and run the Telegram bot."""
+    try:
+        app = Application.builder().token(TELEGRAM_TOKEN).build()
+
+        # Register handlers
+        app.add_handler(CommandHandler("start", start))
+        app.add_handler(CallbackQueryHandler(button))
+
+        logger.info("Bot starting...")
+        app.run_polling(allowed_updates=Update.ALL_TYPES)
+    except Exception as e:
+        logger.critical(f"Failed to start bot: {str(e)}")
+
+if __name__ == "__main__":
+    main()
