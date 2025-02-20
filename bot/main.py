@@ -47,7 +47,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         context.user_data["last_start"] = update.message.message_id
 
         telegram_id = str(user.id)
-        with get_session() as session:  # Use context manager from db.py
+        session = get_session()  # Get session manually
+        try:
             db_user = get_user(telegram_id, session)
             if not db_user:
                 db_user = add_user(telegram_id, session)
@@ -62,6 +63,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                     "Your trading bot is ready.\n"
                     "What would you like to do?"
                 )
+        finally:
+            session.close()  # Ensure session is closed
 
         await update.message.reply_text(welcome_msg, reply_markup=MAIN_MENU)
         logger.info(f"Processed /start for user {telegram_id}")
@@ -69,7 +72,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     except Exception as e:
         logger.error(f"Error in start handler: {str(e)}")
         await update.message.reply_text("An error occurred. Please try again.")
-
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Handle inline button clicks (stub for now).
