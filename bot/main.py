@@ -96,8 +96,9 @@ def main() -> None:
 
         # Register handlers
         app.add_handler(CommandHandler("start", start))
-        app.add_handler(CallbackQueryHandler(button))
         app.add_handler(CallbackQueryHandler(wallet_handler, pattern="^wallet$")) # wallet handlers
+        app.add_handler(CallbackQueryHandler(button))
+        
 
         logger.info("Bot starting...")
         app.run_polling(allowed_updates=Update.ALL_TYPES)
