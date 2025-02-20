@@ -22,11 +22,11 @@ MAIN_MENU = InlineKeyboardMarkup([
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
-    Handle the /start command, greet the user, and display the main menu.
+    Handle the /start command, register or greet user, and display the main menu.
 
     Edge Cases:
-    - Handle missing user info (e.g., Telegram API issues).
-    - Prevent duplicate messages if command is spammed.
+    - Handle database errors gracefully.
+    - Differentiate new vs returning users.
     """
     try:
         user = update.effective_user
@@ -35,24 +35,35 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             await update.message.reply_text("Oops! Something went wrong. Try again later.")
             return
 
-        # Prevent duplicate starts by checking if message is already processed
+        # Prevent duplicate starts
         if context.user_data.get("last_start") == update.message.message_id:
             logger.info(f"Duplicate /start from {user.id}")
             return
         context.user_data["last_start"] = update.message.message_id
 
-        welcome_msg = (
-            f"Welcome, {user.first_name}! 🚀\n"
-            "I'm your cross-chain trading bot for TON and Solana.\n"
-            "What would you like to do?"
-        )
+        telegram_id = str(user.id)
+        with get_session() as session:
+            db_user = get_user(telegram_id, session)
+            if not db_user:
+                db_user = add_user(telegram_id, session)
+                welcome_msg = (
+                    f"Welcome, {user.first_name}! 🚀\n"
+                    "You're new here! I'll set up your wallets soon.\n"
+                    "What would you like to do?"
+                )
+            else:
+                welcome_msg = (
+                    f"Welcome back, {user.first_name}! 👋\n"
+                    "Your trading bot is ready.\n"
+                    "What would you like to do?"
+                )
+
         await update.message.reply_text(welcome_msg, reply_markup=MAIN_MENU)
-        logger.info(f"Started bot for user {user.id}")
+        logger.info(f"Processed /start for user {telegram_id}")
 
     except Exception as e:
         logger.error(f"Error in start handler: {str(e)}")
         await update.message.reply_text("An error occurred. Please try again.")
-
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Handle inline button clicks (stub for now).
