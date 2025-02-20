@@ -5,7 +5,8 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
-from database.db import get_session, get_user, add_user  # Import database utilities
+from database.db import get_session, get_user, add_user  
+from bot.handlers.wallet import wallet_handler
 
 # Configure logging for production debugging
 logging.basicConfig(
@@ -96,6 +97,7 @@ def main() -> None:
         # Register handlers
         app.add_handler(CommandHandler("start", start))
         app.add_handler(CallbackQueryHandler(button))
+        app.add_handler(CallbackQueryHandler(wallet_handler, pattern="^wallet$")) # wallet handlers
 
         logger.info("Bot starting...")
         app.run_polling(allowed_updates=Update.ALL_TYPES)
