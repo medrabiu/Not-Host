@@ -1,6 +1,7 @@
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
+from database.db import get_session, get_user, add_user  # Import database utilities
 
 # Configure logging for production debugging
 logging.basicConfig(
@@ -16,8 +17,8 @@ TELEGRAM_TOKEN = "7754246943:AAFT82vJoG8g0zVb10HeSRfrhP6TSh0AyNM"
 MAIN_MENU = InlineKeyboardMarkup([
     [InlineKeyboardButton("Buy", callback_data="buy"),
      InlineKeyboardButton("Sell", callback_data="sell")],
-    [InlineKeyboardButton("Wallet", callback_data=""),
-     InlineKeyboardButton("Help", callback_data="helpwallet")]
+    [InlineKeyboardButton("Wallet", callback_data="wallet"),
+     InlineKeyboardButton("Help", callback_data="help")]
 ])
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -42,7 +43,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         context.user_data["last_start"] = update.message.message_id
 
         telegram_id = str(user.id)
-        with get_session() as session:
+        with get_session() as session:  # Use context manager from db.py
             db_user = get_user(telegram_id, session)
             if not db_user:
                 db_user = add_user(telegram_id, session)
@@ -64,6 +65,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     except Exception as e:
         logger.error(f"Error in start handler: {str(e)}")
         await update.message.reply_text("An error occurred. Please try again.")
+
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Handle inline button clicks (stub for now).
