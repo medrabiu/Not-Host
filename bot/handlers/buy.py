@@ -3,6 +3,11 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, ConversationHandler, MessageHandler, filters,CallbackQueryHandler
 from services.token_info import get_token_info, format_token_info
 
+from blockchain.solana.transactions import execute_solana_trade
+from blockchain.ton.transactions import execute_ton_trade
+from services.wallet_management import get_wallet
+from services.token_info import detect_chain
+
 logger = logging.getLogger(__name__)
 
 # Conversation states
@@ -18,7 +23,52 @@ async def buy_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
     await query.edit_message_text("Please send the token address you want to buy.")
+
     return ADDRESS
+async def buy_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Handle 'Confirm Buy' button."""
+    query = update.callback_query
+    await query.answer()
+    user_id = str(update.effective_user.id)
+    token_info = context.user_data.get("buy_token")
+
+    try:
+        if not token_info:
+            await query.edit_message_text("No token selected. Start over with /start.")
+            return ConversationHandler.END
+
+        chain = detect_chain(token_info["address"])
+        wallet = get_wallet(user_id, chain)
+        if not wallet:
+            await query.edit_message_text("Wallet not found. Set up your wallet first.")
+            return ConversationHandler.END
+
+        if chain == "solana":
+            tx_id = await execute_solana_trade(wallet.public_key, token_info["address"], 0.001)  # Stub amount
+        else:  # ton
+            tx_id = await execute_ton_trade(wallet.public_key, token_info["address"], 0.001)
+
+        if tx_id:
+            await query.edit_message_text(f"Buy successful! Tx ID: `{tx_id}`", parse_mode="Markdown")
+        else:
+            await query.edit_message_text("Buy failed. Try again later.")
+        logger.info(f"Buy confirmed for {user_id} on {chain}")
+    except Exception as e:
+        logger.error(f"Error in buy_confirm for {user_id}: {str(e)}")
+        await query.edit_message_text("An error occurred during the trade.")
+    return ConversationHandler.END
+
+# Update buy_handler
+buy_handler = ConversationHandler(
+    entry_points=[CallbackQueryHandler(buy_start, pattern="^buy$")],
+    states={
+        ADDRESS: [MessageHandler(filters.TEXT & ~filters.COMMAND, buy_address)]
+    },
+    fallbacks=[
+        CallbackQueryHandler(buy_cancel, pattern="^cancel$"),
+        CallbackQueryHandler(buy_confirm, pattern="^confirm_buy$")  # Add confirmation
+    ]
+)
 
 async def buy_address(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """
@@ -39,7 +89,8 @@ async def buy_address(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
 
         # Format and send token info
         formatted_info = format_token_info(token_info)
-        keyboard = [[InlineKeyboardButton("Cancel", callback_data="cancel")]]
+        keyboard = [[InlineKeyboardButton("Confirm Buy", callback_data="confirm_buy"),
+                     InlineKeyboardButton("Cancel", callback_data="cancel")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         await update.message.reply_text(formatted_info, reply_markup=reply_markup, parse_mode="Markdown")
         logger.info(f"Displayed token info for {token_address} to user {user_id}")

@@ -9,6 +9,7 @@ from database.db import get_session, get_user, add_user
 from bot.handlers.buy import buy_handler  
 from bot.handlers.wallet import wallet_handler
 from bot.handlers.token_details import token_details_handler
+from bot.handlers.sell import sell_handler
 
 # Configure logging for production debugging
 logging.basicConfig(
@@ -100,6 +101,7 @@ def main() -> None:
         app.add_handler(CommandHandler("start", start))
         app.add_handler(CallbackQueryHandler(wallet_handler, pattern="^wallet$")) # wallet handlers
         app.add_handler(buy_handler)
+        app.add_handler(sell_handler
         app.add_handler(token_details_handler) 
         app.add_handler(CallbackQueryHandler(button))
         
