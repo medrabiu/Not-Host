@@ -101,7 +101,7 @@ def main() -> None:
         app.add_handler(CommandHandler("start", start))
         app.add_handler(CallbackQueryHandler(wallet_handler, pattern="^wallet$")) # wallet handlers
         app.add_handler(buy_handler)
-        app.add_handler(sell_handler
+        app.add_handler(sell_handler)
         app.add_handler(token_details_handler) 
         app.add_handler(CallbackQueryHandler(button))
         
