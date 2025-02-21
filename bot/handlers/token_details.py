@@ -21,7 +21,6 @@ async def token_details(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     user_id = str(update.effective_user.id)
 
     try:
-        # Try to detect if it's a token address
         try:
             chain = detect_chain(user_input)
             is_address = True
@@ -29,19 +28,16 @@ async def token_details(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             is_address = False
 
         if is_address:
-            # User provided an address
-            token_info = get_token_info(user_input)
+            token_info = await get_token_info(user_input)  # Now async
             if not token_info:
                 await update.message.reply_text("Couldn’t fetch token info. Check the address and try again.")
                 return
         else:
-            # Assume it’s a token symbol (stub for now; replace with real lookup later)
-            # For demo, treat as a Solana token with dummy data if no address match
             logger.info(f"Assuming {user_input} as token symbol (stubbed)")
             token_info = {
                 "name": f"{user_input} Token",
                 "symbol": user_input.upper(),
-                "address": "StubAddress123",  # Placeholder
+                "address": "StubAddress123",
                 "price_usd": 0.01,
                 "price_change_24h": 5.0,
                 "market_cap": 10000,

@@ -1,110 +1,69 @@
 import logging
 import aiohttp
 from solana.rpc.api import Client
-from solana.publickey import PublicKey
-from typing import Dict, Optional
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
 # Multiple RPC endpoints for failover
 RPC_ENDPOINTS = [
-    "https://api.mainnet-beta.solana.com",
-    "https://ssc-dao.genesysgo.net",
-    "https://solana-mainnet.core.chainstack.com/YOUR_API_KEY"  # Replace with your key
+    "https://api.mainnet-beta.solana.com",  # Public RPC
+    "https://solana-mainnet.core.chainstack.com/YOUR_API_KEY",  # Chainstack (example)
+    "https://ssc-dao.genesysgo.net"  # GenesysGo (example)
 ]
 JUPITER_API = "https://quote-api.jup.ag/v6"
 
-async def get_solana_client() -> Client:
-    """Initialize Solana client with RPC failover."""
+async def get_jupiter_client() -> Client:
+    """Initialize Solana client with failover."""
     for rpc in RPC_ENDPOINTS:
         try:
             client = Client(rpc)
-            if await client.is_connected():
-                logger.info(f"Using Solana RPC: {rpc}")
-                return client
+            await client.is_connected()  # Test connection
+            logger.info(f"Using Solana RPC: {rpc}")
+            return client
         except Exception as e:
             logger.warning(f"RPC {rpc} failed: {str(e)}")
     raise ConnectionError("All Solana RPC endpoints failed")
 
-async def get_solana_token_info(token_address: str) -> Optional[Dict]:
+async def execute_solana_trade(wallet_pk: str, token_address: str, amount: float) -> Optional[str]:
     """
-    Fetch real token info from Solana ecosystem for a given token address.
+    Execute a trade on Jupiter for a Solana token.
 
     Args:
-        token_address: Solana token mint address (e.g., FFXVWS3F...).
+        wallet_pk: User’s wallet public key.
+        token_address: Token to swap from.
+        amount: Amount in SOL to spend.
 
     Returns:
-        Dict with token stats or None if failed.
-
-    Edge Cases:
-    - Invalid address format.
-    - RPC or API connection failure.
-    - Missing metadata or pricing data.
+        Transaction ID or None if failed.
     """
     try:
-        # Validate Solana address (Base58, 43-44 chars)
-        if not (40 <= len(token_address) <= 44):
-            logger.error(f"Invalid Solana address length: {token_address}")
-            return None
-        try:
-            PublicKey(token_address)  # Ensure it’s a valid public key
-        except ValueError:
-            logger.error(f"Invalid Solana address format: {token_address}")
-            return None
-
-        # Initialize Solana client
-        client = await get_solana_client()
-
-        # Fetch token metadata (name, symbol) from Solana RPC
+        client = await get_jupiter_client()
         async with aiohttp.ClientSession() as session:
-            # Get token supply for market cap calculation
-            supply_response = await client.get_token_supply(PublicKey(token_address))
-            if "value" not in supply_response.result:
-                logger.error(f"Failed to fetch token supply for {token_address}")
-                return None
-            total_supply = supply_response.result["value"]["uiAmount"]
-
-            # Jupiter quote for pricing (SOL to token)
-            quote_url = f"{JUPITER_API}/quote?inputMint=So11111111111111111111111111111111111111112&outputMint={token_address}&amount=1000000&slippageBps=50"
+            # Quote swap (SOL to token)
+            quote_url = f"{JUPITER_API}/quote?inputMint=So11111111111111111111111111111111111111112&outputMint={token_address}&amount={int(amount * 1_000_000)}&slippageBps=50"
             async with session.get(quote_url) as resp:
                 if resp.status != 200:
-                    logger.error(f"Jupiter quote failed for {token_address}: {await resp.text()}")
+                    logger.error(f"Jupiter quote failed: {await resp.text()}")
                     return None
                 quote = await resp.json()
-                price_sol = int(quote["outAmount"]) / 1_000_000  # SOL per token
-                price_usd = price_sol * 150  # Approximate SOL price in USD (update with real SOL price API)
 
-            # Placeholder: Fetch metadata from Raydium or token registry (simplified)
-            # In production, use Metaplex metadata or a token list API
-            name = "Unknown Token"  # Stub; replace with real metadata fetch
-            symbol = "UNK"  # Stub
-            volume_24h = quote.get("volume", 0)  # Jupiter might not provide this directly
-            liquidity = quote.get("liquidity", 0)  # Approximate from pool data if available
-
-            # Calculate market cap
-            market_cap = total_supply * price_usd
-
-            # Dummy stats (replace with real data sources in production)
-            token_info = {
-                "name": name,
-                "symbol": symbol,
-                "address": token_address,
-                "price_usd": price_usd,
-                "price_change_24h": 0.0,  # Requires historical data API
-                "market_cap": market_cap,
-                "volume_24h": volume_24h or 10000,  # Fallback
-                "liquidity": liquidity or 5000,  # Fallback
-                "price_change_1h": 0.0,  # Requires historical data
-                "buys_1h": 0,  # Requires trade history
-                "sells_1h": 0,  # Requires trade history
-                "ath": market_cap * 1.2,  # Arbitrary ATH
-                "ath_change": -20.0,  # Arbitrary
-                "age_days": 1  # Requires creation date
+            # Swap transaction (stubbed; requires wallet signing in production)
+            swap_url = f"{JUPITER_API}/swap"
+            payload = {
+                "quoteResponse": quote,
+                "userPublicKey": wallet_pk,
+                "wrapAndUnwrapSol": True
             }
-
-            logger.info(f"Fetched Solana token info for {token_address}")
-            return token_info
+            async with session.post(swap_url, json=payload) as resp:
+                if resp.status != 200:
+                    logger.error(f"Jupiter swap failed: {await resp.text()}")
+                    return None
+                swap_data = await resp.json()
+                tx_id = swap_data.get("swapTransaction")  # Simplified; actual TxID extraction varies
+                logger.info(f"Executed Solana trade: {tx_id}")
+                return tx_id
 
     except Exception as e:
-        logger.error(f"Failed to fetch Solana token info for {token_address}: {str(e)}")
+        logger.error(f"Failed to execute Solana trade: {str(e)}")
         return None

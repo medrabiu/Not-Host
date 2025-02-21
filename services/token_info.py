@@ -23,7 +23,7 @@ def detect_chain(token_address: str) -> str:
         logger.error(f"Unknown chain for address: {token_address}")
         raise ValueError("Invalid or unsupported token address")
 
-def get_token_info(token_address: str) -> Optional[Dict]:
+async def get_token_info(token_address: str) -> Optional[Dict]:
     """
     Fetch token info based on detected chain.
 
@@ -36,14 +36,14 @@ def get_token_info(token_address: str) -> Optional[Dict]:
     try:
         chain = detect_chain(token_address)
         if chain == "solana":
-            return get_solana_token_info(token_address)
+          return await get_solana_token_info(token_address)  
         elif chain == "ton":
             return get_ton_token_info(token_address)
     except ValueError as e:
         logger.error(f"Token info failed: {str(e)}")
         return None
 
-def format_token_info(token_info: Dict) -> str:
+async def format_token_info(token_info: Dict) -> str:
     """
     Format token info into a Telegram-friendly string.
 
@@ -53,11 +53,11 @@ def format_token_info(token_info: Dict) -> str:
     Returns:
         Formatted string for display.
     """
-    return (
+   return (
         f"Buy\n"
         f"{token_info['name']} (${token_info['symbol']})\n"
         f"├ {token_info['address']}\n"
-        f"Balance: 0.001 SOL — Sol-snipe\n"  # Stubbed balance
+        f"Balance: 0.001 SOL — Sol-snipe\n"
         f"└ #{token_info['symbol']} | 🌱 {token_info['age_days']}d |\n"
         f"📊 Token Stats\n"
         f" ├ USD:  ${token_info['price_usd']:.8f} ({token_info['price_change_24h']:+.1f}%)\n"
