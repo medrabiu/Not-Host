@@ -31,7 +31,7 @@ async def buy_address(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
             return ConversationHandler.END
 
         formatted_info = format_token_info(token_info)
-        keyboard = [[InlineKeyboardButton("Confirm Buy", callback_data="confirm_buy"),
+        keyboard = [[InlineKeyboardButton("Confirm Buy", callback_data="buy_confirm"),
                      InlineKeyboardButton("Cancel", callback_data="cancel")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         await update.message.reply_text(formatted_info, reply_markup=reply_markup, parse_mode="Markdown")
