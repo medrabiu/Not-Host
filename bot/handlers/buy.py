@@ -25,19 +25,21 @@ async def buy_address(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
     user_id = str(update.effective_user.id)
 
     try:
-        token_info = get_token_info(token_address)
+        # Fetch token info asynchronously
+        token_info = await get_token_info(token_address)
         if not token_info:
             await update.message.reply_text("Couldn’t fetch token info. Check the address and try again.")
             return ConversationHandler.END
 
-        formatted_info = format_token_info(token_info)
+        # Format token info asynchronously
+        formatted_info = await format_token_info(token_info)
         keyboard = [[InlineKeyboardButton("Confirm Buy", callback_data="confirm_buy"),
                      InlineKeyboardButton("Cancel", callback_data="cancel")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         await update.message.reply_text(formatted_info, reply_markup=reply_markup, parse_mode="Markdown")
         context.user_data["buy_token"] = token_info
         logger.info(f"Displayed buy info for {token_address} to user {user_id}")
-        return CONFIRM  # Move to confirmation state instead of ending
+        return CONFIRM
     except Exception as e:
         logger.error(f"Error in buy_address for {user_id}: {str(e)}")
         await update.message.reply_text("An error occurred. Try again later.")
@@ -62,7 +64,7 @@ async def buy_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
             return ConversationHandler.END
 
         if chain == "solana":
-            tx_id = await execute_solana_trade(wallet.public_key, token_info["address"], 0.001)  # Stub amount
+            tx_id = await execute_solana_trade(wallet.public_key, token_info["address"], 0.001)
         else:  # ton
             tx_id = await execute_ton_trade(wallet.public_key, token_info["address"], 0.001)
 
