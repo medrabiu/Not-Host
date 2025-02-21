@@ -53,7 +53,7 @@ async def format_token_info(token_info: Dict) -> str:
     Returns:
         Formatted string for display.
     """
-   return (
+    return (
         f"Buy\n"
         f"{token_info['name']} (${token_info['symbol']})\n"
         f"├ {token_info['address']}\n"
