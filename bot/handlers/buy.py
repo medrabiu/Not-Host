@@ -1,6 +1,6 @@
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ContextTypes, ConversationHandler, MessageHandler, filters,CallbackQueryHandler,
+from telegram.ext import ContextTypes, ConversationHandler, MessageHandler, filters,CallbackQueryHandler
 from services.token_info import get_token_info, format_token_info
 
 logger = logging.getLogger(__name__)
