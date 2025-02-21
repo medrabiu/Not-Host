@@ -28,7 +28,7 @@ async def token_details(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             is_address = False
 
         if is_address:
-            token_info = await get_token_info(user_input)  # Now async
+            token_info = await get_token_info(user_input)  # Already async and awaited
             if not token_info:
                 await update.message.reply_text("Couldn’t fetch token info. Check the address and try again.")
                 return
@@ -51,8 +51,8 @@ async def token_details(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 "age_days": 7
             }
 
-        # Format and display token info
-        formatted_info = format_token_info(token_info)
+        # Format and display token info (await the async function)
+        formatted_info = await format_token_info(token_info)  # Fix: Added await
         keyboard = [
             [InlineKeyboardButton("Buy", callback_data="buy_from_details"),
              InlineKeyboardButton("Sell", callback_data="sell_from_details")]
