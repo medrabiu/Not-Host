@@ -1,6 +1,6 @@
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ContextTypes, ConversationHandler, MessageHandler, filters,CallbackQueryHandler
+from telegram.ext import ContextTypes, ConversationHandler, MessageHandler, CallbackQueryHandler, filters
 from services.token_info import get_token_info, format_token_info
 from blockchain.solana.transactions import execute_solana_trade
 from blockchain.ton.transactions import execute_ton_trade
@@ -10,7 +10,7 @@ from services.token_info import detect_chain
 logger = logging.getLogger(__name__)
 
 # Conversation states
-ADDRESS = 0
+ADDRESS, CONFIRM = range(2)
 
 async def buy_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Handle 'Buy' button click, prompt for token address."""
@@ -20,7 +20,7 @@ async def buy_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     return ADDRESS
 
 async def buy_address(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Process token address, fetch and display token info."""
+    """Process token address, fetch and display token info, move to confirmation."""
     token_address = update.message.text.strip()
     user_id = str(update.effective_user.id)
 
@@ -37,7 +37,7 @@ async def buy_address(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
         await update.message.reply_text(formatted_info, reply_markup=reply_markup, parse_mode="Markdown")
         context.user_data["buy_token"] = token_info
         logger.info(f"Displayed buy info for {token_address} to user {user_id}")
-        return ConversationHandler.END
+        return CONFIRM  # Move to confirmation state instead of ending
     except Exception as e:
         logger.error(f"Error in buy_address for {user_id}: {str(e)}")
         await update.message.reply_text("An error occurred. Try again later.")
@@ -71,10 +71,11 @@ async def buy_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
         else:
             await query.edit_message_text("Buy failed. Try again later.")
         logger.info(f"Buy confirmed for {user_id} on {chain}")
+        return ConversationHandler.END
     except Exception as e:
         logger.error(f"Error in buy_confirm for {user_id}: {str(e)}")
         await query.edit_message_text("An error occurred during the trade.")
-    return ConversationHandler.END
+        return ConversationHandler.END
 
 async def buy_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Handle cancellation of the buy process."""
@@ -83,14 +84,13 @@ async def buy_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await query.edit_message_text("Buy cancelled. Use /start to return to the menu.")
     return ConversationHandler.END
 
-# Define the conversation handler after all functions
+# Define the conversation handler
 buy_handler = ConversationHandler(
     entry_points=[CallbackQueryHandler(buy_start, pattern="^buy$")],
     states={
-        ADDRESS: [MessageHandler(filters.TEXT & ~filters.COMMAND, buy_address)]
+        ADDRESS: [MessageHandler(filters.TEXT & ~filters.COMMAND, buy_address)],
+        CONFIRM: [CallbackQueryHandler(buy_confirm, pattern="^confirm_buy$"),
+                  CallbackQueryHandler(buy_cancel, pattern="^cancel$")]
     },
-    fallbacks=[
-        CallbackQueryHandler(buy_cancel, pattern="^cancel$"),
-        CallbackQueryHandler(buy_confirm, pattern="^confirm_buy$")
-    ]
+    fallbacks=[CallbackQueryHandler(buy_cancel, pattern="^cancel$")]
 )
