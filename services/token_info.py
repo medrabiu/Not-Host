@@ -39,10 +39,13 @@ async def get_token_info(token_address: str) -> Optional[Dict]:
         return None
 
 async def format_token_info(token_info: Dict, chain: str, wallet_balance: float) -> str:
+    """Format token info with price impact."""
+    liquidity_display = f"${token_info['liquidity']/1000:.1f}K" if token_info['liquidity'] >= 1 else "<1$"
     return (
         f"Buy ${token_info['symbol']} - {token_info['name']} 📈\n"
-        f"Token CA: {token_info['address']}\n"
-        f"Wallet Balance: {wallet_balance:.2f} {chain.upper()}\n"
-        f"Price: ${token_info['price_usd']:.6f} - Liq: ${token_info['liquidity']/1000:.1f}K\n"
-        f"Market Cap: ${token_info['market_cap']/1000:.1f}K"
+        f"Token CA: {token_info['address']}\n\n"
+        f"Wallet Balance: {wallet_balance:.2f} {chain.upper()}\n\n"
+        f"Price: ${token_info['price_usd']:.6f} - Liq: {liquidity_display}\n\"
+        f"Market Cap: ${token_info['market_cap']/1000:.1f}K\n\n"
+        f"Price Impact: {token_info['price_impact']:.2f}%"
     )
