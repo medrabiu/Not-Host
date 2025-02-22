@@ -18,10 +18,11 @@ async def get_ton_token_info(token_address: str) -> Optional[Dict]:
             logger.error(f"Invalid TON address format: {token_address}")
             return None
 
-        # Stubbed data (replace with Stonfi API later)
+        # Stubbed data with address included
         token_info = {
             "name": "TON Example",
             "symbol": "TEX",
+            "address": token_address,  # Add the address key
             "price_usd": 0.005,
             "liquidity": 10000,
             "market_cap": 50000
