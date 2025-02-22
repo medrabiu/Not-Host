@@ -6,64 +6,34 @@ from blockchain.ton.token import get_ton_token_info
 logger = logging.getLogger(__name__)
 
 def detect_chain(token_address: str) -> str:
-    """
-    Detect blockchain from token address.
-
-    Args:
-        token_address: Token address to check.
-
-    Returns:
-        'solana' or 'ton' or raises ValueError if unknown.
-    """
-    if (40 <= len(token_address) <= 44):  # Solana Base58 length
+    if 40 <= len(token_address) <= 44:
         return "solana"
-    elif (len(token_address) == 48 and token_address.startswith(("EQ", "UQ"))):  # TON format
+    elif len(token_address) == 48 and token_address.startswith(("EQ", "UQ")):
         return "ton"
     else:
-        logger.error(f"Unknown chain for address: {token_address}")
         raise ValueError("Invalid or unsupported token address")
 
 async def get_token_info(token_address: str) -> Optional[Dict]:
-    """
-    Fetch token info based on detected chain.
-
-    Args:
-        token_address: Token address to query.
-
-    Returns:
-        Dict with token stats or None if failed.
-    """
     try:
         chain = detect_chain(token_address)
         if chain == "solana":
-          return await get_solana_token_info(token_address)  
+            return await get_solana_token_info(token_address)
         elif chain == "ton":
-            return get_ton_token_info(token_address)
+            return await get_ton_token_info(token_address)
     except ValueError as e:
         logger.error(f"Token info failed: {str(e)}")
         return None
 
-async def format_token_info(token_info: Dict) -> str:
-    """
-    Format token info into a Telegram-friendly string.
-
-    Args:
-        token_info: Dict with token stats.
-
-    Returns:
-        Formatted string for display.
-    """
+async def format_token_info(token_info: Dict, chain: str, wallet_balance: float) -> str:
+    """Format minimal token info with buy options."""
+    amounts = [0.01, 0.02, 0.03, 0.04, 0.05] if chain == "solana" else [0.02, 0.04, 0.06, 0.08, 0.1]
+    unit = "SOL" if chain == "solana" else "TON"
     return (
-        f"Buy\n"
-        f"{token_info['name']} (${token_info['symbol']})\n"
-        f"├ {token_info['address']}\n"
-        f"Balance: 0.001 SOL — Sol-snipe\n"
-        f"└ #{token_info['symbol']} | 🌱 {token_info['age_days']}d |\n"
-        f"📊 Token Stats\n"
-        f" ├ USD:  ${token_info['price_usd']:.8f} ({token_info['price_change_24h']:+.1f}%)\n"
-        f" ├ MC:   ${token_info['market_cap']/1000:.1f}K\n"
-        f" ├ Vol:  ${token_info['volume_24h']/1000:.1f}K\n"
-        f" ├ LP:   ${token_info['liquidity']/1000:.1f}K\n"
-        f" ├ 1H:   {token_info['price_change_1h']:+.1f}% 🅑 {token_info['buys_1h']} Ⓢ {token_info['sells_1h']}\n"
-        f" └ ATH:  ${token_info['ath']/1000:.1f}K ({token_info['ath_change']:+.1f}% / 5h)"
+        f"Buy ${token_info['symbol']} - {token_info['name']} 📈\n"
+        f"Token CA: {token_info['address']}\n"
+        f"Wallet Balance: {wallet_balance:.2f} {unit}\n"
+        f"Price: ${token_info['price_usd']:.6f} - Liq: ${token_info['liquidity']/1000:.1f}K\n"
+        f"Market Cap: ${token_info['market_cap']/1000:.1f}K\n"
+        f"{' '.join([f'[{amt} {unit}]' for amt in amounts])}\n"
+        f"[Buy {amounts[0]} {unit}]"
     )

@@ -2,68 +2,41 @@ import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, MessageHandler, filters
 from services.token_info import get_token_info, format_token_info, detect_chain
+from services.wallet_management import get_wallet
 
 logger = logging.getLogger(__name__)
 
 async def token_details(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """
-    Handle plain text input of a token address or name, display token details.
-
-    Args:
-        update: Telegram update object.
-        context: Telegram context object.
-
-    Edge Cases:
-    - Invalid address or unrecognized token name.
-    - API fetch failures.
-    """
+    """Handle plain text input of a token address, display minimal token details."""
     user_input = update.message.text.strip()
     user_id = str(update.effective_user.id)
 
     try:
-        try:
-            chain = detect_chain(user_input)
-            is_address = True
-        except ValueError:
-            is_address = False
+        chain = detect_chain(user_input)
+        token_info = await get_token_info(user_input)
+        if not token_info:
+            await update.message.reply_text("Couldn’t fetch token info. Check the address and try again.")
+            return
 
-        if is_address:
-            token_info = await get_token_info(user_input)  # Already async and awaited
-            if not token_info:
-                await update.message.reply_text("Couldn’t fetch token info. Check the address and try again.")
-                return
-        else:
-            logger.info(f"Assuming {user_input} as token symbol (stubbed)")
-            token_info = {
-                "name": f"{user_input} Token",
-                "symbol": user_input.upper(),
-                "address": "StubAddress123",
-                "price_usd": 0.01,
-                "price_change_24h": 5.0,
-                "market_cap": 10000,
-                "volume_24h": 5000,
-                "liquidity": 2000,
-                "price_change_1h": 1.2,
-                "buys_1h": 3,
-                "sells_1h": 2,
-                "ath": 15000,
-                "ath_change": -33.3,
-                "age_days": 7
-            }
+        # Stubbed wallet balance for now
+        wallet = get_wallet(user_id, chain)
+        balance = 0.05 if chain == "solana" else 0.1  # Stub; replace with real balance later
 
-        # Format and display token info (await the async function)
-        formatted_info = await format_token_info(token_info)  # Fix: Added await
+        formatted_info = await format_token_info(token_info, chain, balance)
+        amounts = [0.01, 0.02, 0.03, 0.04, 0.05] if chain == "solana" else [0.02, 0.04, 0.06, 0.08, 0.1]
         keyboard = [
-            [InlineKeyboardButton("Buy", callback_data="buy_from_details"),
-             InlineKeyboardButton("Sell", callback_data="sell_from_details")]
+            [InlineKeyboardButton(f"{amt} {chain.upper()}", callback_data=f"buy_{amt}") for amt in amounts],
+            [InlineKeyboardButton(f"Buy {amounts[0]} {chain.upper()}", callback_data=f"buy_{amounts[0]}")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         await update.message.reply_text(formatted_info, reply_markup=reply_markup, parse_mode="Markdown")
+        context.user_data["token_info"] = token_info  # Store for buy action
         logger.info(f"Displayed token details for {user_input} to user {user_id}")
 
+    except ValueError:
+        await update.message.reply_text("Invalid token address. Please provide a valid Solana or TON address.")
     except Exception as e:
         logger.error(f"Error in token_details for {user_id}: {str(e)}")
-        await update.message.reply_text("An error occurred. Please try a valid token address or name.")
+        await update.message.reply_text("An error occurred. Try again later.")
 
-# Handler for plain text input
 token_details_handler = MessageHandler(filters.TEXT & ~filters.COMMAND, token_details)
