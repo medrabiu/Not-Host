@@ -25,15 +25,11 @@ async def get_token_info(token_address: str) -> Optional[Dict]:
         return None
 
 async def format_token_info(token_info: Dict, chain: str, wallet_balance: float) -> str:
-    """Format minimal token info with buy options."""
-    amounts = [0.01, 0.02, 0.03, 0.04, 0.05] if chain == "solana" else [0.02, 0.04, 0.06, 0.08, 0.1]
-    unit = "SOL" if chain == "solana" else "TON"
+    """Format minimal token info without buy options in text."""
     return (
         f"Buy ${token_info['symbol']} - {token_info['name']} 📈\n"
         f"Token CA: {token_info['address']}\n"
-        f"Wallet Balance: {wallet_balance:.2f} {unit}\n"
+        f"Wallet Balance: {wallet_balance:.2f} {chain.upper()}\n"
         f"Price: ${token_info['price_usd']:.6f} - Liq: ${token_info['liquidity']/1000:.1f}K\n"
-        f"Market Cap: ${token_info['market_cap']/1000:.1f}K\n"
-        f"{' '.join([f'[{amt} {unit}]' for amt in amounts])}\n"
-        f"[Buy {amounts[0]} {unit}]"
+        f"Market Cap: ${token_info['market_cap']/1000:.1f}K"
     )
