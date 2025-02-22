@@ -6,11 +6,23 @@ from blockchain.ton.token import get_ton_token_info
 logger = logging.getLogger(__name__)
 
 def detect_chain(token_address: str) -> str:
-    if 40 <= len(token_address) <= 44:
-        return "solana"
-    elif len(token_address) == 48 and token_address.startswith(("EQ", "UQ")):
+    """
+    Detect blockchain from token address.
+
+    Args:
+        token_address: Token address to check.
+
+    Returns:
+        'solana' or 'ton' or raises ValueError if unknown.
+    """
+    # TON check first: exactly 48 chars and starts with EQ/UQ
+    if len(token_address) == 48 and token_address.startswith(("EQ", "UQ")):
         return "ton"
+    # Solana check: 40-44 chars, no TON prefix
+    elif 40 <= len(token_address) <= 44 and not token_address.startswith(("EQ", "UQ")):
+        return "solana"
     else:
+        logger.error(f"Unknown chain for address: {token_address}")
         raise ValueError("Invalid or unsupported token address")
 
 async def get_token_info(token_address: str) -> Optional[Dict]:

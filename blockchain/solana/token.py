@@ -20,8 +20,14 @@ async def get_solana_token_info(token_address: str) -> Optional[Dict]:
         Dict with token stats or None if failed.
     """
     try:
-        if not (40 <= len(token_address) <= 44) or not PublicKey.is_public_key(token_address):
-            logger.error(f"Invalid Solana address: {token_address}")
+        # Validate address: length check and PublicKey instantiation
+        if not (40 <= len(token_address) <= 44):
+            logger.error(f"Invalid Solana address length: {token_address}")
+            return None
+        try:
+            PublicKey(token_address)  # If invalid, raises ValueError
+        except ValueError:
+            logger.error(f"Invalid Solana address format: {token_address}")
             return None
 
         async with aiohttp.ClientSession() as session:
@@ -51,7 +57,6 @@ async def get_solana_token_info(token_address: str) -> Optional[Dict]:
                 quote = await resp.json()
                 price_usd = float(quote["outAmount"]) / 1_000_000 * 150  # Stub SOL at $150
 
-            # Fetch name/symbol from Jupiter token list
             token_list_url = "https://token.jup.ag/strict"
             async with session.get(token_list_url) as resp:
                 if resp.status != 200:
@@ -68,8 +73,8 @@ async def get_solana_token_info(token_address: str) -> Optional[Dict]:
                 "name": name,
                 "symbol": symbol,
                 "price_usd": price_usd,
-                "liquidity": 0,  # Stub; Jupiter doesn’t provide
-                "market_cap": 0  # Stub; needs supply data
+                "liquidity": 0,  # Stub
+                "market_cap": 0  # Stub
             }
             logger.info(f"Fetched Solana token info from Jupiter fallback for {token_address}")
             return token_info
