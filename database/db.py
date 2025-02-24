@@ -2,7 +2,7 @@ import logging
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from database.models import engine, AsyncSessionFactory, User  # Import from models.py
+from database.models import engine, AsyncSessionFactory, Base, User  # Add Base import
 
 logger = logging.getLogger(__name__)
 
