@@ -1,46 +1,56 @@
-from sqlalchemy.orm import Session
-from database.models import User, SessionFactory
 import logging
+from typing import Optional
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from database.models import engine, AsyncSessionFactory, User  # Import from models.py
 
 logger = logging.getLogger(__name__)
 
-def get_session() -> Session:
+async def init_db():
+    """Initialize the database by creating all tables."""
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    logger.info("Database tables created")
+
+async def get_async_session() -> AsyncSession:
     """
-    Create a new database session.
+    Create and return an asynchronous database session.
 
     Returns:
-        A SQLAlchemy Session object. Caller must close it manually.
+        An AsyncSession object. Caller must manage its lifecycle (commit/close).
     """
     try:
-        return SessionFactory()
+        session = AsyncSessionFactory()
+        return session
     except Exception as e:
-        logger.error(f"Failed to create session: {str(e)}")
+        logger.error(f"Failed to create async session: {str(e)}")
         raise
 
-def get_user(telegram_id: str, session: Session) -> User | None:
+async def get_user(telegram_id: str, session: AsyncSession) -> Optional[User]:
     """
-    Fetch a user by Telegram ID.
+    Fetch a user by Telegram ID asynchronously.
 
     Args:
         telegram_id: User's Telegram ID.
-        session: Active database session.
+        session: Active AsyncSession.
 
     Returns:
         User object or None if not found.
     """
     try:
-        return session.query(User).filter_by(telegram_id=telegram_id).first()
+        result = await session.execute(select(User).filter_by(telegram_id=telegram_id))
+        return result.scalars().first()
     except Exception as e:
         logger.error(f"Error fetching user {telegram_id}: {str(e)}")
         raise
 
-def add_user(telegram_id: str, session: Session) -> User:
+async def add_user(telegram_id: str, session: AsyncSession) -> User:
     """
-    Add a new user to the database.
+    Add a new user to the database asynchronously.
 
     Args:
         telegram_id: User's Telegram ID.
-        session: Active database session.
+        session: Active AsyncSession.
 
     Returns:
         Newly created User object.
@@ -51,10 +61,10 @@ def add_user(telegram_id: str, session: Session) -> User:
     try:
         user = User(telegram_id=telegram_id)
         session.add(user)
-        session.commit()
+        await session.commit()
         logger.info(f"Added user {telegram_id}")
         return user
     except Exception as e:
-        session.rollback()
+        await session.rollback()
         logger.error(f"Failed to add user {telegram_id}: {str(e)}")
         raise

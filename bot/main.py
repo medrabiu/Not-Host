@@ -5,23 +5,20 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
-from database.db import get_session, get_user, add_user
-from bot.handlers.buy import buy_handler  
+from database.db import get_async_session, get_user, add_user  # Updated to async imports
+from bot.handlers.buy import buy_handler
 from bot.handlers.wallet import wallet_handler
 from bot.handlers.token_details import token_details_handler
 from bot.handlers.sell import sell_handler
 
-# Configure logging for production debugging
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
 
-# Bot token (move to config later)
 TELEGRAM_TOKEN = "7754246943:AAFT82vJoG8g0zVb10HeSRfrhP6TSh0AyNM"
 
-# Define main menu keyboard
 MAIN_MENU = InlineKeyboardMarkup([
     [InlineKeyboardButton("Buy", callback_data="buy"),
      InlineKeyboardButton("Sell", callback_data="sell")],
@@ -44,18 +41,17 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             await update.message.reply_text("Oops! Something went wrong. Try again later.")
             return
 
-        # Prevent duplicate starts
         if context.user_data.get("last_start") == update.message.message_id:
             logger.info(f"Duplicate /start from {user.id}")
             return
         context.user_data["last_start"] = update.message.message_id
 
         telegram_id = str(user.id)
-        session = get_session()  # Get session manually
+        session = await get_async_session()  # Get session directly
         try:
-            db_user = get_user(telegram_id, session)
+            db_user = await get_user(telegram_id, session)
             if not db_user:
-                db_user = add_user(telegram_id, session)
+                db_user = await add_user(telegram_id, session)
                 welcome_msg = (
                     f"Welcome, {user.first_name}! 🚀\n"
                     "You're new here! I'll set up your wallets soon.\n"
@@ -67,15 +63,15 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                     "Your trading bot is ready.\n"
                     "What would you like to do?"
                 )
+            await update.message.reply_text(welcome_msg, reply_markup=MAIN_MENU)
+            logger.info(f"Processed /start for user {telegram_id}")
         finally:
-            session.close()  # Ensure session is closed
-
-        await update.message.reply_text(welcome_msg, reply_markup=MAIN_MENU)
-        logger.info(f"Processed /start for user {telegram_id}")
+            await session.close()  # Ensure session is closed
 
     except Exception as e:
         logger.error(f"Error in start handler: {str(e)}")
         await update.message.reply_text("An error occurred. Please try again.")
+
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Handle inline button clicks (stub for now).
@@ -97,14 +93,12 @@ def main() -> None:
     try:
         app = Application.builder().token(TELEGRAM_TOKEN).build()
 
-        # Register handlers
         app.add_handler(CommandHandler("start", start))
-        app.add_handler(CallbackQueryHandler(wallet_handler, pattern="^wallet$")) # wallet handlers
+        app.add_handler(CallbackQueryHandler(wallet_handler, pattern="^wallet$"))
         app.add_handler(buy_handler)
         app.add_handler(sell_handler)
-        app.add_handler(token_details_handler) 
+        app.add_handler(token_details_handler)
         app.add_handler(CallbackQueryHandler(button))
-        
 
         logger.info("Bot starting...")
         app.run_polling(allowed_updates=Update.ALL_TYPES)

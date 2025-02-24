@@ -1,10 +1,11 @@
-from sqlalchemy import create_engine, Column, Integer, String, Boolean, ForeignKey
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, relationship
+from sqlalchemy.orm import relationship
 
-# SQLite for prototyping; replace with PostgreSQL in production
-DATABASE_URL = "sqlite:///bot.db"
-engine = create_engine(DATABASE_URL, echo=False)  # Set echo=True for debugging
+# SQLite for prototyping; replace with PostgreSQL in production (e.g., "postgresql+asyncpg://...")
+DATABASE_URL = "sqlite+aiosqlite:///bot.db"
+engine = create_async_engine(DATABASE_URL, echo=False)  # Set echo=True for debugging
 Base = declarative_base()
 
 class User(Base):
@@ -41,8 +42,5 @@ class Wallet(Base):
     encrypted_private_key = Column(String, nullable=False)
     user = relationship("User", back_populates="wallets")  # Bidirectional relationship
 
-# Create tables if they don't exist
-Base.metadata.create_all(engine)
-
-# Session factory for database interactions
-SessionFactory = sessionmaker(bind=engine)
+# Session factory for async database interactions
+AsyncSessionFactory = async_sessionmaker(engine, expire_on_commit=False)
