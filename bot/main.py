@@ -3,9 +3,11 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import logging
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+import asyncio
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup,Update
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
-from database.db import get_async_session, get_user, add_user  # Updated to async imports
+from database.db import get_async_session, get_user, add_user, init_db
+from bot.handlers.start import start_handler, start_callback_handler
 from bot.handlers.buy import buy_handler
 from bot.handlers.wallet import wallet_handler
 from bot.handlers.token_details import token_details_handler
@@ -26,52 +28,6 @@ MAIN_MENU = InlineKeyboardMarkup([
      InlineKeyboardButton("Help", callback_data="help")]
 ])
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """
-    Handle the /start command, register or greet user, and display the main menu.
-
-    Edge Cases:
-    - Handle database errors gracefully.
-    - Differentiate new vs returning users.
-    """
-    try:
-        user = update.effective_user
-        if not user:
-            logger.error("No user info available in update")
-            await update.message.reply_text("Oops! Something went wrong. Try again later.")
-            return
-
-        if context.user_data.get("last_start") == update.message.message_id:
-            logger.info(f"Duplicate /start from {user.id}")
-            return
-        context.user_data["last_start"] = update.message.message_id
-
-        telegram_id = str(user.id)
-        session = await get_async_session()  # Get session directly
-        try:
-            db_user = await get_user(telegram_id, session)
-            if not db_user:
-                db_user = await add_user(telegram_id, session)
-                welcome_msg = (
-                    f"Welcome, {user.first_name}! 🚀\n"
-                    "You're new here! I'll set up your wallets soon.\n"
-                    "What would you like to do?"
-                )
-            else:
-                welcome_msg = (
-                    f"Welcome back, {user.first_name}! 👋\n"
-                    "Your trading bot is ready.\n"
-                    "What would you like to do?"
-                )
-            await update.message.reply_text(welcome_msg, reply_markup=MAIN_MENU)
-            logger.info(f"Processed /start for user {telegram_id}")
-        finally:
-            await session.close()  # Ensure session is closed
-
-    except Exception as e:
-        logger.error(f"Error in start handler: {str(e)}")
-        await update.message.reply_text("An error occurred. Please try again.")
-
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Handle inline button clicks (stub for now).
@@ -80,7 +36,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     - Invalid callback data.
     """
     query = update.callback_query
-    await query.answer()  # Acknowledge the callback
+    await query.answer()
 
     if query.data in ["buy", "sell", "wallet", "help"]:
         await query.edit_message_text(f"You clicked {query.data}! Feature coming soon.")
@@ -88,12 +44,19 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         logger.warning(f"Unknown callback data: {query.data}")
         await query.edit_message_text("Invalid option. Use the menu below.", reply_markup=MAIN_MENU)
 
-def main() -> None:
-    """Initialize and run the Telegram bot."""
+async def main() -> None:
+    """Initialize and run the Telegram bot asynchronously."""
     try:
+        # Initialize database tables
+        await init_db()
+        logger.info("Database initialization complete")
+
+        # Build and run the application
         app = Application.builder().token(TELEGRAM_TOKEN).build()
 
-        app.add_handler(CommandHandler("start", start))
+        # Register handlers
+        app.add_handler(start_handler)
+        app.add_handler(start_callback_handler)  # For start flow buttons
         app.add_handler(CallbackQueryHandler(wallet_handler, pattern="^wallet$"))
         app.add_handler(buy_handler)
         app.add_handler(sell_handler)
@@ -101,9 +64,12 @@ def main() -> None:
         app.add_handler(CallbackQueryHandler(button))
 
         logger.info("Bot starting...")
-        app.run_polling(allowed_updates=Update.ALL_TYPES)
+        await app.initialize()  # Start the bot’s internal components
+        await app.run_polling(allowed_updates=Update.ALL_TYPES)  # Run polling asynchronously
+        await app.shutdown()  # Clean up after polling stops
+
     except Exception as e:
         logger.critical(f"Failed to start bot: {str(e)}")
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
