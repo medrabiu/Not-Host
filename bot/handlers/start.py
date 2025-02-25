@@ -44,15 +44,17 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         try:
             db_user = await get_user(telegram_id, session)
             if not db_user:
-                # New user: Show welcome message with Agree button
+                # New user: Add to DB and show welcome message with Agree button
+                await add_user(telegram_id, session)
+                await session.commit()  # Commit the user to the DB
                 welcome_msg = (
                     "Welcome to Not-Cotrader!\n"
                     "Not-Cotrader is your Multichain trading bud, built for lightning-fast trades "
                     "on Solana and TON.\n\n"
-                    "By tapping \"Agree and Continue\", you agree to the terms and conditions."
+                    "By tapping \" Agree and Continue\", you agree to the terms and conditions."
                 )
                 keyboard = InlineKeyboardMarkup([
-                    [InlineKeyboardButton("Agree and Continue", callback_data="agree")]
+                    [InlineKeyboardButton(" Agree and Continue", callback_data="agree")]
                 ])
                 await update.message.reply_text(welcome_msg, reply_markup=keyboard)
                 logger.info(f"Sent welcome message to new user {telegram_id}")
