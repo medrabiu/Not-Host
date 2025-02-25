@@ -3,15 +3,14 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import logging
-import asyncio
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup,Update
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
-from database.db import get_async_session, get_user, add_user, init_db
-from bot.handlers.start import start_handler, start_callback_handler
+from database.db import get_async_session, get_user, add_user
 from bot.handlers.buy import buy_handler
 from bot.handlers.wallet import wallet_handler
 from bot.handlers.token_details import token_details_handler
 from bot.handlers.sell import sell_handler
+from bot.handlers.start import start_handler, start_callback_handler  # Updated imports
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -44,19 +43,14 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         logger.warning(f"Unknown callback data: {query.data}")
         await query.edit_message_text("Invalid option. Use the menu below.", reply_markup=MAIN_MENU)
 
-async def main() -> None:
-    """Initialize and run the Telegram bot asynchronously."""
+def main() -> None:
+    """Initialize and run the Telegram bot."""
     try:
-        # Initialize database tables
-        await init_db()
-        logger.info("Database initialization complete")
-
-        # Build and run the application
         app = Application.builder().token(TELEGRAM_TOKEN).build()
 
         # Register handlers
         app.add_handler(start_handler)
-        app.add_handler(start_callback_handler)  # For start flow buttons
+        app.add_handler(start_callback_handler)
         app.add_handler(CallbackQueryHandler(wallet_handler, pattern="^wallet$"))
         app.add_handler(buy_handler)
         app.add_handler(sell_handler)
@@ -64,12 +58,9 @@ async def main() -> None:
         app.add_handler(CallbackQueryHandler(button))
 
         logger.info("Bot starting...")
-        await app.initialize()  # Start the bot’s internal components
-        await app.run_polling(allowed_updates=Update.ALL_TYPES)  # Run polling asynchronously
-        await app.shutdown()  # Clean up after polling stops
-
+        app.run_polling(allowed_updates=Update.ALL_TYPES)
     except Exception as e:
-        logger.critical(f"Failed to start bot: {str(e)}")
+        logger.critical(f"Failed to start bot: {str(e)}", exc_info=True)
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
