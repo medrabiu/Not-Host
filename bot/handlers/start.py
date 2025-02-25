@@ -3,6 +3,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, CommandHandler, CallbackQueryHandler
 from database.db import get_async_session, get_user, add_user
 from services.wallet_management import create_user_wallet, get_wallet
+from services.utils import get_wallet_balance_and_usd  # Import new utility
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +47,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             if not db_user:
                 # New user: Add to DB and show welcome message with Agree button
                 await add_user(telegram_id, session)
-                await session.commit()  # Commit the user to the DB
+                await session.commit()
                 welcome_msg = (
                     "Welcome to Not-Cotrader!\n"
                     "Not-Cotrader is your Multichain trading bud, built for lightning-fast trades "
@@ -59,16 +60,20 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 await update.message.reply_text(welcome_msg, reply_markup=keyboard)
                 logger.info(f"Sent welcome message to new user {telegram_id}")
             else:
-                # Returning user: Show trading interface with wallet info
+                # Returning user: Show trading interface with wallet info and balances
                 sol_wallet = await get_wallet(telegram_id, "solana", session)
                 ton_wallet = await get_wallet(telegram_id, "ton", session)
                 sol_address = sol_wallet.public_key if sol_wallet else "Not set"
                 ton_address = ton_wallet.public_key if ton_wallet else "Not set"
 
+                # Fetch balances and USD values
+                sol_balance, sol_usd = await get_wallet_balance_and_usd(sol_address, "solana") if sol_wallet else (0.0, 0.0)
+                ton_balance, ton_usd = await get_wallet_balance_and_usd(ton_address, "ton") if ton_wallet else (0.0, 0.0)
+
                 trading_msg = (
                     "Not-Cotrader\n\n"
-                    f"Sol-Wallet\n`{sol_address}`\n(tap to copy)\n\n"
-                    f"TON-Wallet\n`{ton_address}`\n(tap to copy)\n\n"
+                    f"Sol-Wallet: {sol_balance:.2f} SOL (${sol_usd:.2f})\n`{sol_address}`\n(tap to copy)\n\n"
+                    f"TON-Wallet: {ton_balance:.2f} TON (${ton_usd:.2f})\n`{ton_address}`\n(tap to copy)\n\n"
                     "Start trading by typing a mint/contract address"
                 )
                 await update.message.reply_text(trading_msg, reply_markup=TRADING_MENU, parse_mode="Markdown")
@@ -99,10 +104,14 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                 ton_wallet = await create_user_wallet(user_id, "ton", session)
                 await session.commit()
 
+            # Fetch balances and USD values
+            sol_balance, sol_usd = await get_wallet_balance_and_usd(sol_wallet.public_key, "solana")
+            ton_balance, ton_usd = await get_wallet_balance_and_usd(ton_wallet.public_key, "ton")
+
             setup_msg = (
                 "Here are your trading bot wallets:\n\n"
-                f"Sol-Wallet\n`{sol_wallet.public_key}`\n(tap to copy)\n\n"
-                f"TON-Wallet\n`{ton_wallet.public_key}`\n(tap to copy)\n\n"
+                f"Sol-Wallet: {sol_balance:.2f} SOL (${sol_usd:.2f})\n`{sol_wallet.public_key}`\n(tap to copy)\n\n"
+                f"TON-Wallet: {ton_balance:.2f} TON (${ton_usd:.2f})\n`{ton_wallet.public_key}`\n(tap to copy)\n\n"
                 "$ Deposit directly -> tap the wallet address to copy\n\n"
                 "Import wallet if you already have one\n\n"
                 "Tap TON Connect to top up from your main TON wallet"
@@ -127,10 +136,14 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             sol_address = sol_wallet.public_key if sol_wallet else "Not set"
             ton_address = ton_wallet.public_key if ton_wallet else "Not set"
 
+            # Fetch balances and USD values
+            sol_balance, sol_usd = await get_wallet_balance_and_usd(sol_address, "solana") if sol_wallet else (0.0, 0.0)
+            ton_balance, ton_usd = await get_wallet_balance_and_usd(ton_address, "ton") if ton_wallet else (0.0, 0.0)
+
             trading_msg = (
                 "Not-Cotrader\n\n"
-                f"Sol-Wallet\n`{sol_address}`\n(tap to copy)\n\n"
-                f"TON-Wallet\n`{ton_address}`\n(tap to copy)\n\n"
+                f"Sol-Wallet: {sol_balance:.2f} SOL (${sol_usd:.2f})\n`{sol_address}`\n(tap to copy)\n\n"
+                f"TON-Wallet: {ton_balance:.2f} TON (${ton_usd:.2f})\n`{ton_address}`\n(tap to copy)\n\n"
                 "Start trading by typing a mint/contract address"
             )
             await query.edit_message_text(trading_msg, reply_markup=TRADING_MENU, parse_mode="Markdown")
