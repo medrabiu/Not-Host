@@ -1,6 +1,6 @@
 import logging
 import aiohttp
-from solana.publickey import PublicKey
+from solders.pubkey import Pubkey
 from solana.rpc.async_api import AsyncClient
 from typing import Dict, Optional
 import os

@@ -1,8 +1,7 @@
 import logging
 from cryptography.fernet import Fernet
 from typing import Tuple
-from solana.keypair import Keypair
-
+from solders.keypair import Keypair
 
 logger = logging.getLogger(__name__)
 
@@ -24,8 +23,8 @@ def create_solana_wallet() -> Tuple[str, str]:
     try:
         # Generate a new Solana keypair
         keypair = Keypair()
-        public_key = str(keypair.public_key)  # Base58-encoded public key
-        private_key = bytes(keypair.secret_key)  # Raw bytes of private key
+        public_key = str(keypair.pubkey())  # Correct method for solders
+        private_key = bytes(keypair.secret())  # Correct method for solders
 
         # Encrypt the private key for secure storage
         encrypted_private_key = CIPHER.encrypt(private_key).decode('utf-8')
