@@ -7,10 +7,10 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 from database.db import get_async_session, get_user, add_user
 from bot.handlers.buy import buy_handler
-from bot.handlers.wallet import wallet_handler
-from bot.handlers.token_details import token_details_handler
+from bot.handlers.wallet import wallet_handler, wallet_callbacks
+from bot.handlers.token_details import token_details_handler, token_callbacks  # Add token_callbacks
 from bot.handlers.sell import sell_handler
-from bot.handlers.start import start_handler, start_callback_handler  # Updated imports
+from bot.handlers.start import start_handler, start_callback_handler
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -28,15 +28,8 @@ MAIN_MENU = InlineKeyboardMarkup([
 ])
 
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """
-    Handle inline button clicks (stub for now).
-
-    Edge Cases:
-    - Invalid callback data.
-    """
     query = update.callback_query
     await query.answer()
-
     if query.data in ["buy", "sell", "wallet", "help"]:
         await query.edit_message_text(f"You clicked {query.data}! Feature coming soon.")
     else:
@@ -51,10 +44,14 @@ def main() -> None:
         # Register handlers
         app.add_handler(start_handler)
         app.add_handler(start_callback_handler)
-        app.add_handler(CallbackQueryHandler(wallet_handler, pattern="^wallet$"))
+        app.add_handler(wallet_handler)
+        for callback in wallet_callbacks:
+            app.add_handler(callback)
         app.add_handler(buy_handler)
         app.add_handler(sell_handler)
         app.add_handler(token_details_handler)
+        for callback in token_callbacks:  # Add token callbacks
+            app.add_handler(callback)
         app.add_handler(CallbackQueryHandler(button))
 
         logger.info("Bot starting...")

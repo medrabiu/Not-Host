@@ -5,8 +5,8 @@ from urllib.parse import quote  # For URL encoding
 logger = logging.getLogger(__name__)
 
 # Constants
-TON_API_URL = "https://toncenter.com/api/v2"  # TonCenter API endpoint
-TON_API_KEY = "YOUR_TONCENTER_API_KEY_HERE"  # Replace with your actual TonCenter API key
+TON_API_URL = "https://toncenter.com/api/v2"  
+TON_API_KEY = "YOUR_TONCENTER_API_KEY_HERE" 
 COINGECKO_API_URL = "https://api.coingecko.com/api/v3"
 
 async def get_ton_balance(wallet_address: str) -> float:
