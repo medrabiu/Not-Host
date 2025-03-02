@@ -1,14 +1,10 @@
 import logging
 from tonsdk.crypto import mnemonic_new
 from tonsdk.contract.wallet import Wallets, WalletVersionEnum
-from cryptography.fernet import Fernet
+from services.crypto import CIPHER  # Import CIPHER from services/crypto
 from typing import Tuple
 
 logger = logging.getLogger(__name__)
-
-# Encryption key (move to config in production)
-ENCRYPTION_KEY = Fernet.generate_key()
-CIPHER = Fernet(ENCRYPTION_KEY)
 
 def create_ton_wallet(version: str = "v4R2") -> Tuple[str, str]:
     """
@@ -18,38 +14,36 @@ def create_ton_wallet(version: str = "v4R2") -> Tuple[str, str]:
         version: Wallet version to use ('v4R2' or 'v5R1', default 'v4R2').
 
     Returns:
-        Tuple[str, str]: (public_address, encrypted_private_key)
+        Tuple[str, str]: (public_address, encrypted_mnemonic)
     """
     try:
-        # Select wallet version
         wallet_version = (
             WalletVersionEnum.v4r2 if version == "v4R2"
             else WalletVersionEnum.v5r1 if version == "v5R1" and hasattr(WalletVersionEnum, "v5r1")
-            else WalletVersionEnum.v4r2  # Default to v4R2 if v5R1 unsupported
+            else WalletVersionEnum.v4r2
         )
         if version == "v5R1" and not hasattr(WalletVersionEnum, "v5r1"):
             logger.warning("v5R1 not supported in this tonsdk version; falling back to v4R2")
             wallet_version = WalletVersionEnum.v4r2
 
-        # Generate mnemonic and create wallet
-        mnemonics = mnemonic_new()
+        mnemonics = mnemonic_new()  # 24-word mnemonic phrase
+        mnemonic_str = " ".join(mnemonics)  # Convert list to string
         _, _, private_key, wallet = Wallets.from_mnemonics(
             mnemonics=mnemonics,
             version=wallet_version,
             workchain=0
         )
 
-        # Get user-friendly, non-bounceable (UQ) address
         address = wallet.address.to_string(
             is_user_friendly=True,
-            is_bounceable=False  # Ensures UQ address
-        )
+            is_bounceable=False
+        ).strip()
 
-        # Encrypt private key
-        encrypted_private_key = CIPHER.encrypt(private_key).decode('utf-8')
+        # Encrypt the mnemonic phrase instead of the private key
+        encrypted_mnemonic = CIPHER.encrypt(mnemonic_str.encode('utf-8')).decode('utf-8')
 
         logger.info(f"Generated TON wallet: {address} (version: {wallet_version})")
-        return address, encrypted_private_key
+        return address, encrypted_mnemonic
 
     except Exception as e:
         logger.error(f"Failed to create TON wallet: {str(e)}")

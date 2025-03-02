@@ -1,13 +1,9 @@
 import logging
-from cryptography.fernet import Fernet
+from services.crypto import CIPHER  # Import CIPHER from services/crypto
 from typing import Tuple
 from solders.keypair import Keypair
 
 logger = logging.getLogger(__name__)
-
-# Encryption key (move to config in production)
-ENCRYPTION_KEY = Fernet.generate_key()
-CIPHER = Fernet(ENCRYPTION_KEY)
 
 def create_solana_wallet() -> Tuple[str, str]:
     """
@@ -21,12 +17,10 @@ def create_solana_wallet() -> Tuple[str, str]:
     - Ensure private key is securely encrypted.
     """
     try:
-        # Generate a new Solana keypair
         keypair = Keypair()
-        public_key = str(keypair.pubkey())  # Correct method for solders
-        private_key = bytes(keypair.secret())  # Correct method for solders
+        public_key = str(keypair.pubkey())
+        private_key = bytes(keypair.secret())
 
-        # Encrypt the private key for secure storage
         encrypted_private_key = CIPHER.encrypt(private_key).decode('utf-8')
 
         logger.info(f"Generated Solana wallet: {public_key}")
