@@ -1,98 +1,235 @@
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ContextTypes, ConversationHandler, MessageHandler, CallbackQueryHandler, filters
-from services.token_info import get_token_info, format_token_info
-from blockchain.solana.transactions import execute_solana_trade
-from blockchain.ton.transactions import execute_ton_trade
+from telegram.ext import CallbackQueryHandler, ContextTypes, ConversationHandler, MessageHandler, filters
+from database.db import get_async_session
 from services.wallet_management import get_wallet
-from services.token_info import detect_chain
+from services.utils import get_wallet_balance_and_usd
+from services.token_info import get_token_info, format_token_info, detect_chain
+from blockchain.solana.trade import execute_solana_swap
+from blockchain.ton.trade import execute_ton_swap  # New import for TON
 
 logger = logging.getLogger(__name__)
 
 # Conversation states
-ADDRESS, CONFIRM = range(2)
+TOKEN_ADDRESS, SET_AMOUNT, SET_SLIPPAGE, CONFIRM = range(4)
 
-async def buy_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Handle 'Buy' button click, prompt for token address."""
+async def buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
-    await query.edit_message_text("Please send the token address you want to buy.")
-    return ADDRESS
+    user_id = str(update.effective_user.id)
 
-async def buy_address(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Process token address, fetch and display token info, move to confirmation."""
+    if query.data == "execute_trade":
+        return await confirm_buy(update, context)
+
+    if query.data.startswith("set_amount"):
+        await query.edit_message_text("Enter the amount to buy (e.g., 0.5 for SOL, 1.5 for TON):", parse_mode="Markdown")
+        return SET_AMOUNT
+
+    if query.data.startswith("set_slippage"):
+        await query.edit_message_text("Enter slippage percentage (e.g., 5):", parse_mode="Markdown")
+        return SET_SLIPPAGE
+
+    if query.data == "refresh_token":
+        return await refresh_token(update, context)
+
+    msg = "Please send the token address you want to buy:"
+    await query.edit_message_text(msg, parse_mode="Markdown")
+    return TOKEN_ADDRESS
+
+async def token_address_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    user_id = str(update.effective_user.id)
     token_address = update.message.text.strip()
-    user_id = str(update.effective_user.id)
+    chain = detect_chain(token_address)
+    unit = "SOL" if chain == "solana" else "TON"
 
-    try:
-        # Fetch token info asynchronously
-        token_info = await get_token_info(token_address)
-        if not token_info:
-            await update.message.reply_text("Couldn’t fetch token info. Check the address and try again.")
-            return ConversationHandler.END
-
-        # Format token info asynchronously
-        formatted_info = await format_token_info(token_info)
-        keyboard = [[InlineKeyboardButton("Confirm Buy", callback_data="confirm_buy"),
-                     InlineKeyboardButton("Cancel", callback_data="cancel")]]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        await update.message.reply_text(formatted_info, reply_markup=reply_markup, parse_mode="Markdown")
-        context.user_data["buy_token"] = token_info
-        logger.info(f"Displayed buy info for {token_address} to user {user_id}")
-        return CONFIRM
-    except Exception as e:
-        logger.error(f"Error in buy_address for {user_id}: {str(e)}")
-        await update.message.reply_text("An error occurred. Try again later.")
-        return ConversationHandler.END
-
-async def buy_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Handle 'Confirm Buy' button."""
-    query = update.callback_query
-    await query.answer()
-    user_id = str(update.effective_user.id)
-    token_info = context.user_data.get("buy_token")
-
-    try:
-        if not token_info:
-            await query.edit_message_text("No token selected. Start over with /start.")
-            return ConversationHandler.END
-
-        chain = detect_chain(token_info["address"])
-        wallet = get_wallet(user_id, chain)
+    async with await get_async_session() as session:
+        wallet = await get_wallet(user_id, chain, session)
         if not wallet:
-            await query.edit_message_text("Wallet not found. Set up your wallet first.")
+            await update.message.reply_text(f"No {chain.capitalize()} wallet found. Create one first!", parse_mode="Markdown")
             return ConversationHandler.END
+        wallet_balance, usd_value = await get_wallet_balance_and_usd(wallet.public_key, chain)
 
-        if chain == "solana":
-            tx_id = await execute_solana_trade(wallet.public_key, token_info["address"], 0.001)
-        else:  # ton
-            tx_id = await execute_ton_trade(wallet.public_key, token_info["address"], 0.001)
+    result = await get_token_info(token_address)
+    if not result:
+        await update.message.reply_text("Couldn’t fetch token info. Check the address and try again.")
+        return TOKEN_ADDRESS
+    token_info, chain_price_usd = result
 
-        if tx_id:
-            await query.edit_message_text(f"Buy successful! Tx ID: `{tx_id}`", parse_mode="Markdown")
-        else:
-            await query.edit_message_text("Buy failed. Try again later.")
-        logger.info(f"Buy confirmed for {user_id} on {chain}")
+    context.user_data["token_address"] = token_address
+    context.user_data["token_info"] = token_info
+    context.user_data["chain"] = chain
+    context.user_data["slippage"] = 5
+    context.user_data["buy_amount"] = 0.5 if chain == "solana" else 1.5
+
+    formatted_info = await format_token_info(token_info, chain, wallet_balance, chain_price_usd, context)
+    keyboard = [
+        [InlineKeyboardButton(f"Slippage: 5%", callback_data="set_slippage"),
+         InlineKeyboardButton(f"Amount: {context.user_data['buy_amount']} {unit}", callback_data="set_amount")],
+        [InlineKeyboardButton("Execute Trade", callback_data="execute_trade"),
+         InlineKeyboardButton("Refresh", callback_data="refresh_token")],
+        [InlineKeyboardButton("Main Menu", callback_data="main_menu")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    await update.message.reply_text(formatted_info, reply_markup=reply_markup, parse_mode="Markdown")
+    logger.info(f"Displayed token details for {token_address} to user {user_id}")
+    return CONFIRM
+
+async def set_amount_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    user_id = str(update.effective_user.id)
+    try:
+        amount = float(update.message.text.strip())
+        if amount <= 0:
+            raise ValueError
+        context.user_data["buy_amount"] = amount
+    except ValueError:
+        await update.message.reply_text("Invalid amount. Enter a positive number (e.g., 0.5 for SOL, 1.5 for TON).", parse_mode="Markdown")
+        return SET_AMOUNT
+    return await refresh_token(update, context, from_message=True)
+
+async def set_slippage_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    user_id = str(update.effective_user.id)
+    try:
+        slippage = float(update.message.text.strip())
+        if slippage < 0 or slippage > 100:
+            raise ValueError
+        context.user_data["slippage"] = slippage
+    except ValueError:
+        await update.message.reply_text("Invalid slippage. Enter a number between 0 and 100 (e.g., 5).", parse_mode="Markdown")
+        return SET_SLIPPAGE
+    return await refresh_token(update, context, from_message=True)
+
+async def refresh_token(update: Update, context: ContextTypes.DEFAULT_TYPE, from_message: bool = False) -> int:
+    user_id = str(update.effective_user.id)
+    token_address = context.user_data.get("token_address")
+    chain = context.user_data.get("chain")
+    if not token_address or not chain:
+        await (update.message.reply_text if from_message else update.callback_query.edit_message_text)(
+            "No token selected. Please send a token address first.", parse_mode="Markdown"
+        )
         return ConversationHandler.END
-    except Exception as e:
-        logger.error(f"Error in buy_confirm for {user_id}: {str(e)}")
-        await query.edit_message_text("An error occurred during the trade.")
-        return ConversationHandler.END
 
-async def buy_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Handle cancellation of the buy process."""
+    async with await get_async_session() as session:
+        wallet = await get_wallet(user_id, chain, session)
+        wallet_balance, usd_value = await get_wallet_balance_and_usd(wallet.public_key, chain)
+
+    result = await get_token_info(token_address)
+    if not result:
+        await (update.message.reply_text if from_message else update.callback_query.edit_message_text)(
+            "Couldn’t refresh token info. Try again later.", parse_mode="Markdown"
+        )
+        return CONFIRM
+    token_info, chain_price_usd = result
+    context.user_data["token_info"] = token_info
+
+    formatted_info = await format_token_info(token_info, chain, wallet_balance, chain_price_usd, context)
+    unit = "SOL" if chain == "solana" else "TON"
+    slippage = context.user_data.get("slippage", 5)
+    buy_amount = context.user_data.get("buy_amount", 0.5 if chain == "solana" else 1.5)
+
+    keyboard = [
+        [InlineKeyboardButton(f"Slippage: {slippage}%", callback_data="set_slippage"),
+         InlineKeyboardButton(f"Amount: {buy_amount} {unit}", callback_data="set_amount")],
+        [InlineKeyboardButton("Execute Trade", callback_data="execute_trade"),
+         InlineKeyboardButton("Refresh", callback_data="refresh_token")],
+        [InlineKeyboardButton("Main Menu", callback_data="main_menu")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    if from_message:
+        await update.message.reply_text(formatted_info, reply_markup=reply_markup, parse_mode="Markdown")
+    else:
+        await update.callback_query.edit_message_text(formatted_info, reply_markup=reply_markup, parse_mode="Markdown")
+    logger.info(f"Refreshed token details for {token_address} for user {user_id}")
+    return CONFIRM
+
+async def confirm_buy(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
-    await query.edit_message_text("Buy cancelled. Use /start to return to the menu.")
+    user_id = str(update.effective_user.id)
+
+    token_address = context.user_data["token_address"]
+    chain = context.user_data["chain"]
+    amount = context.user_data["buy_amount"]
+    slippage = context.user_data["slippage"]
+    unit = "SOL" if chain == "solana" else "TON"
+
+    async with await get_async_session() as session:
+        wallet = await get_wallet(user_id, chain, session)
+        balance, usd_value = await get_wallet_balance_and_usd(wallet.public_key, chain)
+
+    if balance < amount + 0.01:  # Reserve 0.01 TON/SOL for gas
+        await query.edit_message_text(
+            f"Insufficient {unit} balance. You have {balance:.2f} {unit}, need {amount + 0.01:.2f} {unit}.",
+            parse_mode="Markdown"
+        )
+        return ConversationHandler.END
+
+    token_info = context.user_data["token_info"]
+    formatted_info = await format_token_info(token_info, chain, balance, 0, context)
+
+    if chain == "solana":
+        try:
+            swap_result = await execute_solana_swap(wallet, token_address, amount, slippage)
+            output_amount = swap_result["output_amount"] / 1_000_000_000  # Convert lamports to tokens
+            tx_id = swap_result["tx_id"]
+            msg = (
+                f"{formatted_info}\n\n"
+                f"Buy Order Executed:\n"
+                f"Spent: {amount:.2f} SOL\n"
+                f"Received: {output_amount:.6f} {token_info['symbol']}\n"
+                f"Tx: [Solscan](https://solscan.io/tx/{tx_id})"
+            )
+        except Exception as e:
+            await query.edit_message_text(f"Failed to execute Solana trade: {str(e)}", parse_mode="Markdown")
+            logger.error(f"Swap failed for user {user_id}: {str(e)}", exc_info=True)
+            return ConversationHandler.END
+    elif chain == "ton":
+        try:
+            swap_result = await execute_ton_swap(wallet, token_address, amount, slippage)
+            output_amount = swap_result["output_amount"] / 1_000_000_000  # Convert nanotons to tokens
+            tx_id = swap_result["tx_id"]
+            msg = (
+                f"{formatted_info}\n\n"
+                f"Buy Order Executed:\n"
+                f"Spent: {amount:.2f} TON\n"
+                f"Received: {output_amount:.6f} {token_info['symbol']}\n"
+                f"Tx: [TONScan](https://tonscan.org/tx/{tx_id})"
+            )
+        except Exception as e:
+            await query.edit_message_text(f"Failed to execute TON trade: {str(e)}", parse_mode="Markdown")
+            logger.error(f"Swap failed for user {user_id}: {str(e)}", exc_info=True)
+            return ConversationHandler.END
+
+    await query.edit_message_text(msg, parse_mode="Markdown")
+    logger.info(f"User {user_id} executed buy {amount} {unit} of {token_address} on {chain}")
     return ConversationHandler.END
 
-# Define the conversation handler
-buy_handler = ConversationHandler(
-    entry_points=[CallbackQueryHandler(buy_start, pattern="^buy$")],
+async def cancel_buy(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    await query.edit_message_text("Buy cancelled.", parse_mode="Markdown")
+    logger.info(f"User {update.effective_user.id} cancelled buy")
+    return ConversationHandler.END
+
+buy_conv_handler = ConversationHandler(
+    entry_points=[
+        CallbackQueryHandler(buy_handler, pattern="^buy$"),
+        CallbackQueryHandler(buy_handler, pattern="^execute_trade$"),
+        CallbackQueryHandler(buy_handler, pattern="^set_amount$"),
+        CallbackQueryHandler(buy_handler, pattern="^set_slippage$"),
+        CallbackQueryHandler(buy_handler, pattern="^refresh_token$"),
+    ],
     states={
-        ADDRESS: [MessageHandler(filters.TEXT & ~filters.COMMAND, buy_address)],
-        CONFIRM: [CallbackQueryHandler(buy_confirm, pattern="^confirm_buy$"),
-                  CallbackQueryHandler(buy_cancel, pattern="^cancel$")]
+        TOKEN_ADDRESS: [MessageHandler(filters.TEXT & ~filters.COMMAND, token_address_handler)],
+        SET_AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_amount_handler)],
+        SET_SLIPPAGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_slippage_handler)],
+        CONFIRM: [
+            CallbackQueryHandler(buy_handler, pattern="^(execute_trade|set_amount|set_slippage|refresh_token)$"),
+            CallbackQueryHandler(cancel_buy, pattern="^main_menu$"),
+        ]
     },
-    fallbacks=[CallbackQueryHandler(buy_cancel, pattern="^cancel$")]
+    fallbacks=[CallbackQueryHandler(cancel_buy, pattern="^main_menu$")]
 )
+
+buy_handler = buy_conv_handler

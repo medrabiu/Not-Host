@@ -2,8 +2,7 @@ import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, ConversationHandler, MessageHandler, CallbackQueryHandler, filters
 from services.token_info import get_token_info, format_token_info
-from blockchain.solana.transactions import execute_solana_trade
-from blockchain.ton.transactions import execute_ton_trade
+
 from services.wallet_management import get_wallet
 from services.token_info import detect_chain
 
