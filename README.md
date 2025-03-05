@@ -48,6 +48,7 @@ This project was developed as a submission, showcasing a functional trading bot 
 ```bash
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
+```bash
 
 TELEGRAM_TOKEN="your_telegram_bot_token"
 TON_API_KEY="your_ton_api_key"
@@ -58,13 +59,14 @@ Alternatively, set these as environment variables:
 ```bash
 export TELEGRAM_TOKEN="your_telegram_bot_token"
 export TON_API_KEY="your_ton_api_key"
+```bash
 
 
 ## Run the Bot:
 
 ```bash
 python bot/main.py
-
+```bash
 ## Usage
 Start the Bot:
 In Telegram, send /start to the bot.
@@ -90,6 +92,7 @@ In Telegram, send /start to the bot.
 2. Send a token address (e.g., `EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRvHtdxyYphGV` for TON).
 3. Adjust amount (e.g., `1.5 TON`) and slippage (e.g., `5%`), then execute the trade.
 
+```bash
 ### Project Structure
 not-cotrader/
 ├── bot/
@@ -110,11 +113,13 @@ not-cotrader/
 │   ├── solana/
 │   │   ├── trade.py      # Solana swap logic (Jupiter DEX)
 │   │   ├── token.py      # Solana token utilities
-│   │   ├── wallet.py     # Solana wallet creation
+│   │   ├── wallet.py     # Solana wallet creationetc
+            utils.py
 │   ├── ton/
 │   │   ├── trade.py      # TON swap logic (STON.fi)
 │   │   ├── token.py      # TON token utilities
-│   │   ├── wallet.py     # TON wallet creation
+│   │   ├── wallet.py     # TON wallet creation etc 
+            utils.py
 ├── database/
 │   ├── db.py             # Database session and models
 ├── services/
@@ -126,7 +131,7 @@ not-cotrader/
 ├── requirements.txt      # Project dependencies
 ├── .env                  # Environment variables (not tracked)
 ├── README.md             # This file
-
+```bash
 ## Contributing
 Contributions are welcome! To contribute:
 
