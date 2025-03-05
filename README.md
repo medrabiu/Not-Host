@@ -59,7 +59,7 @@ Alternatively, set these as environment variables:
 ```bash
 export TELEGRAM_TOKEN="your_telegram_bot_token"
 export TON_API_KEY="your_ton_api_key"
-```bash
+```
 
 
 ## Run the Bot:
