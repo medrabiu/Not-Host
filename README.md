@@ -132,6 +132,7 @@ not-cotrader/
 ├── requirements.txt      # Project dependencies
 ├── .env                  # Environment variables (not tracked)
 ├── README.md             # This file
+```
 
 ## Contributing
 Contributions are welcome! To contribute:
