@@ -1,20 +1,36 @@
 import logging
 from tonsdk.crypto import mnemonic_new
 from tonsdk.contract.wallet import Wallets, WalletVersionEnum
-from services.crypto import CIPHER  # Import CIPHER from services/crypto
+from services.crypto import CIPHER  
 from typing import Tuple
-
 logger = logging.getLogger(__name__)
 
 def create_ton_wallet(version: str = "v4R2") -> Tuple[str, str]:
     """
     Generate a new TON custodial wallet with a specified version (v4R2 or v5R1).
 
+    This function creates a new TON wallet by generating a 24-word mnemonic phrase,
+    deriving the wallet address and private key using the specified wallet version,
+    and encrypting the mnemonic phrase for secure storage.
+
     Args:
-        version: Wallet version to use ('v4R2' or 'v5R1', default 'v4R2').
+        version (str, optional): Wallet version to use. Accepts 'v4R2' or 'v5R1'.
+            Defaults to 'v4R2'. Falls back to 'v4R2' if 'v5R1' is unsupported.
 
     Returns:
-        Tuple[str, str]: (public_address, encrypted_mnemonic)
+        Tuple[str, str]: A tuple containing:
+            - public_address (str): The TON wallet address in user-friendly, non-bounceable format.
+            - encrypted_mnemonic (str): The encrypted 24-word mnemonic phrase as a UTF-8 encoded string.
+
+    Raises:
+        ValueError: If wallet creation fails due to mnemonic generation, key derivation,
+            or encryption errors.
+
+    Notes:
+        - Uses the tonsdk library to generate mnemonics and derive wallet details.
+        - The mnemonic phrase is encrypted instead of the private key for recovery purposes.
+        - If 'v5R1' is specified but not supported by the tonsdk version, it falls back to 'v4R2'
+          with a logged warning.
     """
     try:
         wallet_version = (

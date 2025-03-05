@@ -7,14 +7,22 @@ logger = logging.getLogger(__name__)
 
 def create_solana_wallet() -> Tuple[str, str]:
     """
-    Generate a new Solana custodial wallet.
+    Generate a new Solana custodial wallet with an encrypted private key.
+
+    This function creates a new Solana keypair, extracts the public key as a string,
+    and encrypts the private key using the CIPHER object from services.crypto.
 
     Returns:
-        Tuple[str, str]: (public_key, encrypted_private_key)
+        Tuple[str, str]: A tuple containing:
+            - public_key (str): The Solana wallet's public key.
+            - encrypted_private_key (str): The encrypted private key as a UTF-8 encoded string.
 
-    Edge Cases:
-    - Handle keypair generation failures.
-    - Ensure private key is securely encrypted.
+    Raises:
+        ValueError: If keypair generation or encryption fails due to an underlying exception.
+
+    Notes:
+        - The private key is encrypted to ensure security.
+        - Any failure in keypair generation or encryption is logged and raised as an exception.
     """
     try:
         keypair = Keypair()

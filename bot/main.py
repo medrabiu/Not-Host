@@ -18,9 +18,14 @@ from bot.handlers.positions import positions_handler
 from bot.handlers.pnl import pnl_handler
 from bot.handlers.token_list import token_list_handler
 
+# Configure logging to save to a file
 logging.basicConfig(
+    level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO
+    handlers=[
+        logging.FileHandler("bot.log"),  # Save logs to bot.log
+        logging.StreamHandler()          # Optional: Keep console output
+    ]
 )
 logger = logging.getLogger(__name__)
 
@@ -38,7 +43,23 @@ MAIN_MENU = InlineKeyboardMarkup([
 ])
 
 async def main_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle the main menu display and basic button clicks."""
+    """
+    Handle the main menu display and basic button clicks.
+
+    This function processes callback queries for the main menu, displaying the menu
+    or redirecting to specific handlers based on the button clicked.
+
+    Args:
+        update (Update): The Telegram update object containing the callback query.
+        context (ContextTypes.DEFAULT_TYPE): The Telegram context object.
+
+    Returns:
+        None
+
+    Notes:
+        - Logs user interactions and warns on unknown callback data.
+        - Provides a fallback message for unhandled options.
+    """
     query = update.callback_query
     await query.answer()
     
@@ -53,7 +74,23 @@ async def main_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         await query.edit_message_text("Invalid option. Use the menu below.", reply_markup=MAIN_MENU)
 
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle uncaught exceptions and notify the user, suppressing 'Message is not modified' errors."""
+    """
+    Handle uncaught exceptions and notify the user, suppressing 'Message is not modified' errors.
+
+    This function logs errors and sends an error message to the user, while ignoring
+    non-critical Telegram BadRequest errors related to unchanged messages.
+
+    Args:
+        update (Update): The Telegram update object (may be None).
+        context (ContextTypes.DEFAULT_TYPE): The Telegram context object containing the error.
+
+    Returns:
+        None
+
+    Notes:
+        - Logs full exception details with stack traces for debugging.
+        - Handles both callback queries and message updates appropriately.
+    """
     if isinstance(context.error, BadRequest) and "Message is not modified" in str(context.error):
         logger.debug("Suppressed 'Message is not modified' error")
         return
@@ -69,7 +106,22 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         logger.warning("Update object has no query or message to respond to.")
 
 def main() -> None:
-    """Initialize and run the Telegram bot."""
+    """
+    Initialize and run the Telegram bot.
+
+    This function sets up the Telegram bot application, registers all handlers,
+    and starts the polling loop with job queue support.
+
+    Returns:
+        None
+
+    Raises:
+        Exception: If bot initialization or polling fails (logged as critical).
+
+    Notes:
+        - Registers handlers in a specific order: specific handlers first, catch-all last.
+        - Starts the job queue for scheduled tasks.
+    """
     try:
         app = Application.builder().token(TELEGRAM_TOKEN).build()
 
