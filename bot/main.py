@@ -12,6 +12,11 @@ from bot.handlers.wallet import wallet_handler, wallet_callbacks
 from bot.handlers.token_details import token_details_handler
 from bot.handlers.sell import sell_handler
 from bot.handlers.start import start_handler, start_callback_handler
+from bot.handlers.help import handler as help_handler
+from bot.handlers.settings import settings_command_handler, settings_callback_handler, settings_input_handler
+from bot.handlers.positions import positions_handler
+from bot.handlers.pnl import pnl_handler
+from bot.handlers.token_list import token_list_handler
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -25,14 +30,24 @@ MAIN_MENU = InlineKeyboardMarkup([
     [InlineKeyboardButton("Buy", callback_data="buy"),
      InlineKeyboardButton("Sell", callback_data="sell")],
     [InlineKeyboardButton("Wallet", callback_data="wallet"),
+     InlineKeyboardButton("Settings", callback_data="settings")],
+    [InlineKeyboardButton("Positions", callback_data="positions"),
+     InlineKeyboardButton("PnL", callback_data="pnl")],
+    [InlineKeyboardButton("Token List", callback_data="token_list"),
      InlineKeyboardButton("Help", callback_data="help")]
 ])
 
-async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def main_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle the main menu display and basic button clicks."""
     query = update.callback_query
     await query.answer()
-    if query.data in ["buy", "sell", "wallet", "help"]:
-        await query.edit_message_text(f"You clicked {query.data}! Feature coming soon.")
+    
+    if query.data == "main_menu":
+        await query.edit_message_text("Welcome to Not-Cotrader! Choose an option:", reply_markup=MAIN_MENU)
+        logger.info(f"User {update.effective_user.id} returned to main menu")
+    elif query.data in ["buy", "sell", "wallet", "settings", "positions", "pnl", "token_list", "help"]:
+        # Specific handlers will override this; placeholder for unhandled cases
+        await query.edit_message_text(f"You clicked {query.data}! Use the corresponding command (e.g., /{query.data}).", reply_markup=MAIN_MENU)
     else:
         logger.warning(f"Unknown callback data: {query.data}")
         await query.edit_message_text("Invalid option. Use the menu below.", reply_markup=MAIN_MENU)
@@ -58,7 +73,7 @@ def main() -> None:
     try:
         app = Application.builder().token(TELEGRAM_TOKEN).build()
 
-        # Register handlers
+        # Register handlers (specific handlers first, catch-all last)
         app.add_handler(start_handler)
         app.add_handler(start_callback_handler)
         app.add_handler(wallet_handler)
@@ -67,7 +82,16 @@ def main() -> None:
         app.add_handler(buy_handler)
         app.add_handler(sell_handler)
         app.add_handler(token_details_handler)
-        app.add_handler(CallbackQueryHandler(button))
+        app.add_handler(help_handler)
+        app.add_handler(settings_command_handler)
+        app.add_handler(settings_callback_handler)
+        app.add_handler(settings_input_handler)
+        app.add_handler(positions_handler)
+        app.add_handler(pnl_handler)
+        app.add_handler(token_list_handler)
+        app.add_handler(CallbackQueryHandler(main_menu_handler, pattern=r"^(main_menu|buy|sell|wallet|settings|positions|pnl|token_list|help)$"))
+
+        # Error handler
         app.add_error_handler(error_handler)
 
         # Initialize the job queue

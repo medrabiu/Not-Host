@@ -6,11 +6,11 @@ from services.wallet_management import get_wallet
 from services.utils import get_wallet_balance_and_usd
 from services.token_info import get_token_info, format_token_info, detect_chain
 from blockchain.solana.trade import execute_solana_swap
-from blockchain.ton.trade import execute_ton_swap  # New import for TON
+from blockchain.ton.trade import execute_ton_swap
 
 logger = logging.getLogger(__name__)
 
-# Conversation states
+# Conversation states (reintroduced SET_SLIPPAGE)
 TOKEN_ADDRESS, SET_AMOUNT, SET_SLIPPAGE, CONFIRM = range(4)
 
 async def buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -58,12 +58,12 @@ async def token_address_handler(update: Update, context: ContextTypes.DEFAULT_TY
     context.user_data["token_address"] = token_address
     context.user_data["token_info"] = token_info
     context.user_data["chain"] = chain
-    context.user_data["slippage"] = 5
     context.user_data["buy_amount"] = 0.5 if chain == "solana" else 1.5
+    context.user_data["slippage"] = 5.0  # Default manual slippage
 
     formatted_info = await format_token_info(token_info, chain, wallet_balance, chain_price_usd, context)
     keyboard = [
-        [InlineKeyboardButton(f"Slippage: 5%", callback_data="set_slippage"),
+        [InlineKeyboardButton(f"Slippage: {context.user_data['slippage']}%", callback_data="set_slippage"),
          InlineKeyboardButton(f"Amount: {context.user_data['buy_amount']} {unit}", callback_data="set_amount")],
         [InlineKeyboardButton("Execute Trade", callback_data="execute_trade"),
          InlineKeyboardButton("Refresh", callback_data="refresh_token")],
@@ -124,8 +124,8 @@ async def refresh_token(update: Update, context: ContextTypes.DEFAULT_TYPE, from
 
     formatted_info = await format_token_info(token_info, chain, wallet_balance, chain_price_usd, context)
     unit = "SOL" if chain == "solana" else "TON"
-    slippage = context.user_data.get("slippage", 5)
     buy_amount = context.user_data.get("buy_amount", 0.5 if chain == "solana" else 1.5)
+    slippage = context.user_data.get("slippage", 5.0)
 
     keyboard = [
         [InlineKeyboardButton(f"Slippage: {slippage}%", callback_data="set_slippage"),
@@ -158,7 +158,7 @@ async def confirm_buy(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
         wallet = await get_wallet(user_id, chain, session)
         balance, usd_value = await get_wallet_balance_and_usd(wallet.public_key, chain)
 
-    if balance < amount + 0.01:  # Reserve 0.01 TON/SOL for gas
+    if balance < amount + 0.01:
         await query.edit_message_text(
             f"Insufficient {unit} balance. You have {balance:.2f} {unit}, need {amount + 0.01:.2f} {unit}.",
             parse_mode="Markdown"
@@ -168,10 +168,10 @@ async def confirm_buy(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
     token_info = context.user_data["token_info"]
     formatted_info = await format_token_info(token_info, chain, balance, 0, context)
 
-    if chain == "solana":
-        try:
+    try:
+        if chain == "solana":
             swap_result = await execute_solana_swap(wallet, token_address, amount, slippage)
-            output_amount = swap_result["output_amount"] / 1_000_000_000  # Convert lamports to tokens
+            output_amount = swap_result["output_amount"] / 1_000_000_000
             tx_id = swap_result["tx_id"]
             msg = (
                 f"{formatted_info}\n\n"
@@ -180,14 +180,9 @@ async def confirm_buy(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
                 f"Received: {output_amount:.6f} {token_info['symbol']}\n"
                 f"Tx: [Solscan](https://solscan.io/tx/{tx_id})"
             )
-        except Exception as e:
-            await query.edit_message_text(f"Failed to execute Solana trade: {str(e)}", parse_mode="Markdown")
-            logger.error(f"Swap failed for user {user_id}: {str(e)}", exc_info=True)
-            return ConversationHandler.END
-    elif chain == "ton":
-        try:
+        elif chain == "ton":
             swap_result = await execute_ton_swap(wallet, token_address, amount, slippage)
-            output_amount = swap_result["output_amount"] / 1_000_000_000  # Convert nanotons to tokens
+            output_amount = swap_result["output_amount"] / 1_000_000_000
             tx_id = swap_result["tx_id"]
             msg = (
                 f"{formatted_info}\n\n"
@@ -196,13 +191,16 @@ async def confirm_buy(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
                 f"Received: {output_amount:.6f} {token_info['symbol']}\n"
                 f"Tx: [TONScan](https://tonscan.org/tx/{tx_id})"
             )
-        except Exception as e:
-            await query.edit_message_text(f"Failed to execute TON trade: {str(e)}", parse_mode="Markdown")
-            logger.error(f"Swap failed for user {user_id}: {str(e)}", exc_info=True)
-            return ConversationHandler.END
+        else:
+            raise ValueError(f"Unsupported chain: {chain}")
 
-    await query.edit_message_text(msg, parse_mode="Markdown")
-    logger.info(f"User {user_id} executed buy {amount} {unit} of {token_address} on {chain}")
+        await query.edit_message_text(msg, parse_mode="Markdown")
+        logger.info(f"User {user_id} executed buy {amount} {unit} of {token_address} on {chain}")
+
+    except Exception as e:
+        await query.edit_message_text(f"Failed to execute {chain.capitalize()} trade: {str(e)}", parse_mode="Markdown")
+        logger.error(f"Swap failed for user {user_id}: {str(e)}", exc_info=True)
+
     return ConversationHandler.END
 
 async def cancel_buy(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
