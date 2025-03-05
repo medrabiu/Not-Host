@@ -93,8 +93,8 @@ In Telegram, send /start to the bot.
 2. Send a token address (e.g., `EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRvHtdxyYphGV` for TON).
 3. Adjust amount (e.g., `1.5 TON`) and slippage (e.g., `5%`), then execute the trade.
 
-```bash
 ### Project Structure
+```bash
 not-cotrader/
 ├── bot/
 │   ├── handlers/
