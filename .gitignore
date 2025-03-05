@@ -171,3 +171,8 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+# Existing patterns (from your file)
+mobi*
+
+# Add this line to explicitly ignore the 'mobile' file
+mobile
