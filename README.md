@@ -48,7 +48,7 @@ This project was developed as a submission, showcasing a functional trading bot 
 ```bash
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
-```bash
+```
 
 TELEGRAM_TOKEN="your_telegram_bot_token"
 TON_API_KEY="your_ton_api_key"
@@ -108,18 +108,18 @@ not-cotrader/
 │   │   ├── token_list.py  # Token list preview handler
 │   │   ├── wallet.py      # Wallet management handler
 │   ├── main.py            # Bot entry point and handler registration
-|   |-- init.py            # initialie db
+│   ├── __init__.py        # Initialize db
 ├── blockchain/
 │   ├── solana/
 │   │   ├── trade.py      # Solana swap logic (Jupiter DEX)
 │   │   ├── token.py      # Solana token utilities
-│   │   ├── wallet.py     # Solana wallet creationetc
-            utils.py
+│   │   ├── wallet.py     # Solana wallet creation
+│   │   ├── utils.py      # Solana utilities
 │   ├── ton/
 │   │   ├── trade.py      # TON swap logic (STON.fi)
 │   │   ├── token.py      # TON token utilities
-│   │   ├── wallet.py     # TON wallet creation etc 
-            utils.py
+│   │   ├── wallet.py     # TON wallet creation
+│   │   ├── utils.py      # TON utilities
 ├── database/
 │   ├── db.py             # Database session and models
 ├── services/
@@ -131,7 +131,7 @@ not-cotrader/
 ├── requirements.txt      # Project dependencies
 ├── .env                  # Environment variables (not tracked)
 ├── README.md             # This file
-```bash
+
 ## Contributing
 Contributions are welcome! To contribute:
 
