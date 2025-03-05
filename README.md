@@ -66,7 +66,8 @@ export TON_API_KEY="your_ton_api_key"
 
 ```bash
 python bot/main.py
-```bash
+```
+
 ## Usage
 Start the Bot:
 In Telegram, send /start to the bot.
