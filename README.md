@@ -62,6 +62,12 @@ export TON_API_KEY="your_ton_api_key"
 ```
 
 
+## initialize The DB
+
+```bash
+python init.py
+```
+
 ## Run the Bot:
 
 ```bash
