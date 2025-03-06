@@ -1,3 +1,4 @@
+# there are likely to be some API issues due to free tier  limitations such as ratelimits and slow response``
 import logging
 import aiohttp
 from solders.pubkey import Pubkey
@@ -13,7 +14,7 @@ JUPYTER_PRICE_API = "https://api.jup.ag/price/v2"
 JUPYTER_TOKEN_API = "https://api.jup.ag/tokens/v1/token"
 JUPITER_SWAP_QUOTE_API = "https://api.jup.ag/swap/v1/quote"
 SOL_MINT = "So11111111111111111111111111111111111111112"
-SOLANA_RPC_URL = os.getenv("SOLANA_RPC_URL", "https://api.mainnet-beta.solana.com") 
+SOLANA_RPC_URL = os.getenv("SOLANA_RPC_URL", "https://api.mainnet-beta.solana.com")# the more the better birdeye,alchemy etc
 JUPITER_API_KEY = os.getenv("JUPITER_API_KEY", None)
 
 # Retry configuration for RPC calls
@@ -34,7 +35,7 @@ async def get_sol_price(session: aiohttp.ClientSession) -> float:
                 return sol_price
             logger.warning("No SOL price data from Jupiter")
         logger.warning(f"Jupiter Price API for SOL returned {resp.status}")
-    return 150.0  # Fallback price
+    return 150.0  # Fallback price alrternatively add additional source for rotation coingecko birdeye 
 
 async def get_solana_token_info(token_address: str) -> Optional[Dict]:
     """

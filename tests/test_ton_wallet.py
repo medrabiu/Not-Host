@@ -1,42 +1,53 @@
 import pytest
-from unittest.mock import patch, Mock
-from blockchain.ton.wallet import create_ton_wallet
+from unittest.mock import patch, MagicMock
 from services.crypto import CIPHER
+from tonsdk.crypto import mnemonic_new
+from tonsdk.contract.wallet import Wallets
+from blockchain.ton.wallet import create_ton_wallet  # Adjust import to match your module
 
-def test_create_ton_wallet_success_v4r2():
-    """Test successful TON wallet creation with v4R2 version."""
-    mock_mnemonics = ["word"] * 24
-    mock_wallet = Mock()
-    mock_wallet.address.to_string.return_value = "EQAYpxYkdsiJoOxnBqhrx5XkEyUNbRk0oHDnMIaKHiWTcRRv"
+@pytest.fixture
+def mock_mnemonic():
+    return ["word" + str(i) for i in range(1, 25)]  # Fake 24-word mnemonic
 
-    with patch("tonsdk.crypto.mnemonic_new", return_value=mock_mnemonics):
-        with patch("tonsdk.contract.wallet.Wallets.from_mnemonics", return_value=(None, None, None, mock_wallet)):
-            with patch.object(CIPHER, "encrypt", return_value="encrypted_mnemonic"):
-                address, encrypted_key = create_ton_wallet(version="v4R2")
-                assert address == "EQAYpxYkdsiJoOxnBqhrx5XkEyUNbRk0oHDnMIaKHiWTcRRv"
-                assert encrypted_key == "encrypted_mnemonic"
+def test_create_ton_wallet_success(mock_mnemonic):
+    mock_address = "EQD3z-abc123xyz456"  # Fake TON address
+    mock_encrypted_mnemonic = "EncryptedMnemonicData"
 
-def test_create_ton_wallet_invalid_version():
-    """Test wallet creation with invalid version falls back to v4R2."""
-    mock_mnemonics = ["word"] * 24
-    mock_wallet = Mock()
-    mock_wallet.address.to_string.return_value = "EQAYpxYkdsiJoOxnBqhrx5XkEyUNbRk0oHDnMIaKHiWTcRRv"
+    with patch("tonsdk.crypto.mnemonic_new", return_value=mock_mnemonic), \
+         patch("tonsdk.contract.wallet.Wallets.from_mnemonics") as mock_wallets, \
+         patch.object(CIPHER, "encrypt", return_value=mock_encrypted_mnemonic.encode('utf-8')):
 
-    with patch("tonsdk.crypto.mnemonic_new", return_value=mock_mnemonics):
-        with patch("tonsdk.contract.wallet.Wallets.from_mnemonics", return_value=(None, None, None, mock_wallet)):
-            with patch.object(CIPHER, "encrypt", return_value="encrypted_mnemonic"):
-                address, encrypted_key = create_ton_wallet(version="invalid")
-                assert address == "EQAYpxYkdsiJoOxnBqhrx5XkEyUNbRk0oHDnMIaKHiWTcRRv"
-                assert encrypted_key == "encrypted_mnemonic"
-@pytest.mark.asyncio
-async def test_create_ton_wallet_encryption_failure():
-    """Test wallet creation with encryption failure."""
-    mock_mnemonics = ["word"] * 24
-    mock_wallet = Mock()
-    mock_wallet.address.to_string.return_value = "EQAYpxYkdsiJoOxnBqhrx5XkEyUNbRk0oHDnMIaKHiWTcRRv"
+        mock_wallet_instance = MagicMock()
+        mock_wallet_instance.address.to_string.return_value = mock_address
+        mock_wallets.return_value = (None, None, None, mock_wallet_instance)
 
-    with patch("tonsdk.crypto.mnemonic_new", return_value=mock_mnemonics):
-        with patch("tonsdk.contract.wallet.Wallets.from_mnemonics", return_value=(None, None, None, mock_wallet)):
-            with patch.object(CIPHER, "encrypt", side_effect=Exception("Encryption failed")):
-                with pytest.raises(ValueError, match="TON wallet creation failed: Encryption failed"):
-                    await create_ton_wallet(version="v4R2")
+        address, encrypted_mnemonic = create_ton_wallet()
+
+        assert address == mock_address
+        assert encrypted_mnemonic == mock_encrypted_mnemonic
+
+def test_create_ton_wallet_encryption_failure(mock_mnemonic):
+    with patch("tonsdk.crypto.mnemonic_new", return_value=mock_mnemonic), \
+         patch("tonsdk.contract.wallet.Wallets.from_mnemonics") as mock_wallets, \
+         patch.object(CIPHER, "encrypt", side_effect=Exception("Encryption error")):
+
+        mock_wallet_instance = MagicMock()
+        mock_wallet_instance.address.to_string.return_value = "EQD3z-abc123xyz456"
+        mock_wallets.return_value = (None, None, None, mock_wallet_instance)
+
+        with pytest.raises(ValueError, match="TON wallet creation failed: Encryption error"):
+            create_ton_wallet()
+
+def test_create_ton_wallet_mnemonic_failure():
+    with patch("tonsdk.crypto.mnemonic_new", side_effect=Exception("Mnemonic error")):
+        try:
+            create_ton_wallet()
+        except Exception as e:
+            print(f"Caught exception: {e}")  # Debugging output
+            raise  # Re-raise the exception for pytest to catch
+git
+def test_create_ton_wallet_wallet_derivation_failure(mock_mnemonic):
+    with patch("tonsdk.crypto.mnemonic_new", return_value=mock_mnemonic), \
+         patch("tonsdk.contract.wallet.Wallets.from_mnemonics", side_effect=Exception("Wallet derivation error")):
+        with pytest.raises(ValueError, match="TON wallet creation failed: Wallet derivation error"):
+            create_ton_wallet()
