@@ -3,7 +3,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, CommandHandler, CallbackQueryHandler
 from database.db import get_async_session, get_user, add_user
 from services.wallet_management import create_user_wallet, get_wallet
-from services.utils import get_wallet_balance_and_usd  # Import new utility
+from services.utils import get_wallet_balance_and_usd, get_sol_price, get_ton_price  # Added price imports
 logger = logging.getLogger(__name__)
 
 # Updated trading menu (aligned with main.py)
@@ -13,7 +13,7 @@ TRADING_MENU = InlineKeyboardMarkup([
     [InlineKeyboardButton("Positions", callback_data="positions"),
      InlineKeyboardButton("Token List", callback_data="token_list")],
     [InlineKeyboardButton("P&L", callback_data="pnl"),
-     InlineKeyboardButton("Orders", callback_data="orders")],
+     InlineKeyboardButton("Watchlist", callback_data="watchlist")],
     [InlineKeyboardButton("Wallet", callback_data="wallet"),
      InlineKeyboardButton("Settings", callback_data="settings"),
      InlineKeyboardButton("Feedback", callback_data="feedback")],
@@ -50,7 +50,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                     "👋 *Welcome to Not-Cotrader!*\n\n"
                     "Your multi-chain trading companion for lightning-fast trades on TON and Solana.\n"
                     "Swap tokens, track positions, and manage wallets—all in one place.\n\n"
-                    "By clicking \"Agree and Continue\", you accept our terms and conditions."
+                    "By clicking \" Agree and Continue\", you accept our terms and conditions."
                 )
                 keyboard = InlineKeyboardMarkup([
                     [InlineKeyboardButton("✅ Agree and Continue", callback_data="agree")]
@@ -59,6 +59,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 logger.info(f"Sent welcome message to new user {telegram_id}")
             else:
                 # Returning user: Show trading interface with wallet info and balances
+                sol_price = await get_sol_price()
+                ton_price = await get_ton_price()
+                
                 sol_wallet = await get_wallet(telegram_id, "solana", session)
                 ton_wallet = await get_wallet(telegram_id, "ton", session)
                 sol_address = sol_wallet.public_key if sol_wallet else "Not set"
@@ -70,6 +73,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
                 trading_msg = (
                     "🔄 *Not-Cotrader*\n\n"
+                    f"💧 SOL Price: ${sol_price:.2f}  |  💎 TON Price: ${ton_price:.2f}\n\n"
                     f"💧 *Sol-Wallet*: {sol_balance:.4f} SOL (${sol_usd:.2f})\n`{sol_address}`\n(tap to copy)\n\n"
                     f"💎 *TON-Wallet*: {ton_balance:.4f} TON (${ton_usd:.2f})\n`{ton_address}`\n(tap to copy)\n\n"
                     "Start trading by typing a mint/contract address or use the menu below:"
@@ -122,6 +126,9 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     elif query.data in ["main_menu", "import_wallet"]:
         # After Main Menu or Import: Show trading interface
         async with await get_async_session() as session:
+            sol_price = await get_sol_price()
+            ton_price = await get_ton_price()
+            
             sol_wallet = await get_wallet(user_id, "solana", session)
             ton_wallet = await get_wallet(user_id, "ton", session)
             sol_address = sol_wallet.public_key if sol_wallet else "Not set"
@@ -133,6 +140,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
             trading_msg = (
                 "🔄 *Not-Cotrader*\n\n"
+                f"💧 SOL Price: ${sol_price:.2f}  |  💎 TON Price: ${ton_price:.2f}\n\n"
                 f"💧 *Sol-Wallet*: {sol_balance:.4f} SOL (${sol_usd:.2f})\n`{sol_address}`\n(tap to copy)\n\n"
                 f"💎 *TON-Wallet*: {ton_balance:.4f} TON (${ton_usd:.2f})\n`{ton_address}`\n(tap to copy)\n\n"
                 "Start trading by typing a mint/contract address or use the menu below:"

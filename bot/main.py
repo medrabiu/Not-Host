@@ -17,6 +17,7 @@ from bot.handlers.settings import settings_command_handler, settings_callback_ha
 from bot.handlers.positions import positions_handler
 from bot.handlers.pnl import pnl_handler
 from bot.handlers.token_list import token_list_handler
+from bot.handlers.watchlist import watchlist_handler
 
 # Configure logging to save to a file
 logging.basicConfig(
@@ -32,14 +33,16 @@ logger = logging.getLogger(__name__)
 TELEGRAM_TOKEN = "7754246943:AAFT82vJoG8g0zVb10HeSRfrhP6TSh0AyNM"
 
 MAIN_MENU = InlineKeyboardMarkup([
-    [InlineKeyboardButton("Buy", callback_data="buy"),
-     InlineKeyboardButton("Sell", callback_data="sell")],
-    [InlineKeyboardButton("Wallet", callback_data="wallet"),
-     InlineKeyboardButton("Settings", callback_data="settings")],
+    [InlineKeyboardButton("🟩 Buy", callback_data="buy"),
+     InlineKeyboardButton("🟥 Sell", callback_data="sell")],
     [InlineKeyboardButton("Positions", callback_data="positions"),
-     InlineKeyboardButton("PnL", callback_data="pnl")],
-    [InlineKeyboardButton("Token List", callback_data="token_list"),
-     InlineKeyboardButton("Help", callback_data="help")]
+     InlineKeyboardButton("Token List", callback_data="token_list")],
+    [InlineKeyboardButton("P&L", callback_data="pnl"),
+     InlineKeyboardButton("Watchlist", callback_data="watchlist")], 
+    [InlineKeyboardButton("Wallet", callback_data="wallet"),
+     InlineKeyboardButton("Settings", callback_data="settings"),
+     InlineKeyboardButton("Feedback", callback_data="feedback")],
+    [InlineKeyboardButton("Help", callback_data="help")]
 ])
 
 async def main_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -133,6 +136,7 @@ def main() -> None:
             app.add_handler(callback)
         app.add_handler(buy_handler)
         app.add_handler(sell_handler)
+        app.add_handler(watchlist_handler)
         app.add_handler(token_details_handler)
         app.add_handler(help_handler)
         app.add_handler(settings_command_handler)
@@ -141,13 +145,14 @@ def main() -> None:
         app.add_handler(positions_handler)
         app.add_handler(pnl_handler)
         app.add_handler(token_list_handler)
+     
         app.add_handler(CallbackQueryHandler(main_menu_handler, pattern=r"^(main_menu|buy|sell|wallet|settings|positions|pnl|token_list|help)$"))
 
         # Error handler
         app.add_error_handler(error_handler)
 
         # Initialize the job queue
-        app.job_queue.start()  # Ensure job queue is running
+        app.job_queue.start() 
 
         logger.info("Bot starting with job queue enabled...")
         app.run_polling(allowed_updates=Update.ALL_TYPES)

@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey
+import sqlalchemy
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, JSON
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
@@ -22,6 +23,7 @@ class User(Base):
     telegram_id = Column(String, unique=True, nullable=False, index=True)
     has_wallet = Column(Boolean, default=False)
     wallets = relationship("Wallet", back_populates="user")  # Relationship to Wallet
+    watchlist = relationship("Watchlist", back_populates="user")  
 
 class Wallet(Base):
     """
@@ -41,6 +43,26 @@ class Wallet(Base):
     public_key = Column(String, unique=True, nullable=False)
     encrypted_private_key = Column(String, nullable=False)
     user = relationship("User", back_populates="wallets")  # Bidirectional relationship
+
+class Watchlist(Base):
+    """
+    Represents a token in a user's watchlist.
+
+    Columns:
+        id: Auto-incrementing primary key.
+        user_id: Foreign key to User.
+        token_data: JSON containing token details (address, symbol, name, chain).
+    """
+    __tablename__ = "watchlist"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    token_data = Column(JSON, nullable=False)
+    user = relationship("User", back_populates="watchlist")  # Bidirectional relationship
+
+    # Ensure uniqueness of token address per user
+    __table_args__ = (
+        sqlalchemy.UniqueConstraint("user_id", "token_data", name="unique_user_token"),
+    )
 
 # Session factory for async database interactions
 AsyncSessionFactory = async_sessionmaker(engine, expire_on_commit=False)
