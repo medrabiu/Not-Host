@@ -1,3 +1,3 @@
 #!/bin/bash
-python init.py   # Initialize database
-python main/bot.py  # Start bot
+python /app/init.py   # Initialize database
+python /app/main/bot.py  # Start the bot (ensure bot.py is in /app/main/)
