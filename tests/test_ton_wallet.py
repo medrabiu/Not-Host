@@ -44,12 +44,11 @@ def test_create_ton_wallet_mnemonic_failure():
             create_ton_wallet()
         except Exception as e:
             print(f"Caught exception: {e}")  # Debugging output
-            raise  # Re-raise the exception for pytest to catch
-
+            raise  
 def test_create_ton_wallet_mnemonic_failure():
     with patch("tonsdk.crypto.mnemonic_new", side_effect=Exception("Mnemonic error")):
         try:
             create_ton_wallet()
         except Exception as e:
             print(f"Caught exception: {e}")  # Debugging output
-            raise  # Re-raise the exception for pytest to catch
+            raise  
