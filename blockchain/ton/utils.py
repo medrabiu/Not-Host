@@ -1,44 +1,40 @@
 import logging
 import aiohttp
-from urllib.parse import quote 
+from urllib.parse import quote
 import os
 
 logger = logging.getLogger(__name__)
 
-# Constants
-TON_API_URL = "https://toncenter.com/api/v2"  
-TON_API_KEY = "YOUR_TONCENTER_API_KEY_HERE" # os.getenv()
+# ======== Configuration ========
+IS_TESTNET = False
+# API Keys and URLs
+TON_API_KEY = "YOUR_TONCENTER_API_KEY_HERE"  # os.getenv()
+
+# Use different URLs for testnet and mainnet
+TON_API_URL = "https://testnet.toncenter.com/api/v2" if IS_TESTNET else "https://toncenter.com/api/v2"
 COINGECKO_API_URL = "https://api.coingecko.com/api/v3"
+
+
+# ======== Functions ========
 
 async def get_ton_balance(wallet_address: str) -> float:
     """
-    Fetch the TON balance for a given TON wallet address using the TON Center API.
-
-    This function queries the TON Center API's getAddressInformation endpoint to retrieve
-    the balance in nanotons for the specified wallet address and converts it to TON.
-    The wallet address is URL-encoded to handle special characters.
+    Fetch the TON balance for a given wallet address from TON Center API.
+    Supports both testnet and mainnet based on the IS_TESTNET flag.
 
     Args:
         wallet_address (str): The TON wallet address to query.
 
     Returns:
-        float: The balance in TON. Returns 0.0 if an error occurs or the API request fails.
-
-    Raises:
-        Exception: If the network request fails or the API response cannot be processed.
-
-    Notes:
-        - Requires a valid TON_API_KEY for authenticated requests; falls back to no headers if unchanged.
-        - Logs detailed error information including response status and text on failure.
+        float: Balance in TON (0.0 if failed).
     """
     try:
-        # URL encode the wallet address to handle special characters like '+'
-        encoded_address = quote(wallet_address, safe='')
+        encoded_address = quote(wallet_address, safe="")
         url = f"{TON_API_URL}/getAddressInformation?address={encoded_address}"
         headers = {"X-API-Key": TON_API_KEY} if TON_API_KEY != "YOUR_TONCENTER_API_KEY_HERE" else {}
-        
+
         async with aiohttp.ClientSession() as session:
-            logger.info(f"Querying TON address: {wallet_address} (encoded: {encoded_address})")
+            logger.info(f"Querying TON balance ({'Testnet' if IS_TESTNET else 'Mainnet'}): {wallet_address}")
             async with session.get(url, headers=headers) as response:
                 if response.status == 200:
                     data = await response.json()
@@ -59,22 +55,14 @@ async def get_ton_balance(wallet_address: str) -> float:
         logger.error(f"Error fetching TON balance for {wallet_address}: {str(e)}")
         return 0.0
 
+
 async def get_ton_price() -> float:
     """
     Fetch the current USD price of TON using the CoinGecko API.
-
-    This function queries CoinGecko's simple price endpoint to retrieve the latest
-    price of TON (The Open Network) in USD.
+    Always fetches mainnet price, as testnet doesn't have a market price.
 
     Returns:
-        float: The current TON price in USD. Returns 0.0 if an error occurs or
-               the API request fails.
-
-    Raises:
-        Exception: If the network request fails or the API response is malformed.
-
-    Notes:
-        - Uses the CoinGecko ID 'the-open-network' for TON.
+        float: Current TON price in USD (0.0 if failed).
     """
     try:
         async with aiohttp.ClientSession() as session:
@@ -91,3 +79,4 @@ async def get_ton_price() -> float:
     except Exception as e:
         logger.error(f"Error fetching TON price: {str(e)}")
         return 0.0
+
