@@ -18,7 +18,9 @@ from bot.handlers.positions import positions_handler
 from bot.handlers.pnl import pnl_handler
 from bot.handlers.token_list import token_list_handler
 from bot.handlers.watchlist import watchlist_handler
+from dotenv import load_dotenv
 
+load_dotenv()
 # Configure logging to save to a file
 logging.basicConfig(
     level=logging.INFO,
@@ -30,7 +32,12 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-TELEGRAM_TOKEN = "7754246943:AAFT82vJoG8g0zVb10HeSRfrhP6TSh0AyNM"
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+
+if not TELEGRAM_TOKEN:
+    logger.critical("TELEGRAM_TOKEN is missing from the environment!")
+    sys.exit(1)
+
 
 MAIN_MENU = InlineKeyboardMarkup([
     [InlineKeyboardButton("🟩 Buy", callback_data="buy"),
