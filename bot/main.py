@@ -12,6 +12,7 @@ from bot.handlers.wallet import wallet_handler, wallet_callbacks
 from bot.handlers.token_details import token_details_handler
 from bot.handlers.sell import sell_handler
 from bot.handlers.start import start_handler, start_callback_handler
+from bot.handlers.settings import settings_handler  
 from bot.handlers.help import handler as help_command_handler, callback_handler as help_callback_handler
 from bot.handlers.settings import settings_command_handler, settings_callback_handler, settings_input_handler
 from bot.handlers.positions import positions_handler
@@ -76,9 +77,9 @@ async def main_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     if query.data == "main_menu":
         await query.edit_message_text("Welcome to Not-Cotrader! Choose an option:", reply_markup=MAIN_MENU)
         logger.info(f"User {update.effective_user.id} returned to main menu")
-    elif query.data in ["buy", "sell", "wallet", "settings", "positions", "pnl", "token_list", "help"]:
-        # Specific handlers will override this; placeholder for unhandled cases
-        await query.edit_message_text(f"You clicked {query.data}! Use the corresponding command (e.g., /{query.data}).", reply_markup=MAIN_MENU)
+    elif query.data == "settings":
+        await settings_handler(update, context)  # Call the settings handler directly
+    
     else:
         logger.warning(f"Unknown callback data: {query.data}")
         await query.edit_message_text("Invalid option. Use the menu below.", reply_markup=MAIN_MENU)
@@ -154,7 +155,7 @@ def main() -> None:
         app.add_handler(pnl_handler)
         app.add_handler(token_list_handler)
      
-        app.add_handler(CallbackQueryHandler(main_menu_handler, pattern=r"^(main_menu|buy|sell|wallet|settings|positions|pnl|token_list|help)$"))
+        app.add_handler(CallbackQueryHandler(main_menu_handler, pattern=r"^(main_menu|buy|sell|settings|wallet|positions|pnl|token_list|help)$"))
 
         # Error handler
         app.add_error_handler(error_handler)
