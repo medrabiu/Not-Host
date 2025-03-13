@@ -1,6 +1,6 @@
-import logging
 from telegram import Update
-from telegram.ext import CommandHandler, ContextTypes
+from telegram.ext import CommandHandler, CallbackQueryHandler, ContextTypes
+import logging
 
 logger = logging.getLogger(__name__)
 
@@ -16,8 +16,15 @@ async def help_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "For more help or to report issues, contact my creator: @aystek on Telegram.\n"
         "Use /start to begin trading!"
     )
-    await update.message.reply_text(help_message, parse_mode="Markdown")
+
+    if update.callback_query:
+        await update.callback_query.answer()
+        await update.callback_query.edit_message_text(help_message, parse_mode="Markdown")
+    else:
+        await update.message.reply_text(help_message, parse_mode="Markdown")
+
     logger.info(f"Displayed help message to user {user_id}")
 
-# Export handler
+# Export handlers
 handler = CommandHandler("help", help_handler)
+callback_handler = CallbackQueryHandler(help_handler, pattern=r"^help$")  # Handle inline button clicks

@@ -4,14 +4,14 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 
-# SQLite for prototyping; replace with PostgreSQL in production (e.g., "postgresql+asyncpg://...")
+# SQLite for prototyping; w PostgreSQL in production (e.g., "postgresql+asyncpg://...")
 DATABASE_URL = "sqlite+aiosqlite:///bot.db"
 engine = create_async_engine(DATABASE_URL, echo=False)  # Set echo=True for debugging
 Base = declarative_base()
 
 class User(Base):
     """
-    Represents a bot user with basic info and wallet status.
+    Represents a bot user with basic info and wallet status..
 
     Columns:
         id: Auto-incrementing primary key.
@@ -39,11 +39,10 @@ class Wallet(Base):
     __tablename__ = "wallets"
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    chain = Column(String, nullable=False)  # 'solana' or 'ton'
+    chain = Column(String, nullable=False)  # 'solana' or 'ton' extendable
     public_key = Column(String, unique=True, nullable=False)
     encrypted_private_key = Column(String, nullable=False)
-    user = relationship("User", back_populates="wallets")  # Bidirectional relationship
-
+    user = relationship("User", back_populates="wallets")  
 class Watchlist(Base):
     """
     Represents a token in a user's watchlist.

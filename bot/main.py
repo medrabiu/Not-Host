@@ -12,7 +12,7 @@ from bot.handlers.wallet import wallet_handler, wallet_callbacks
 from bot.handlers.token_details import token_details_handler
 from bot.handlers.sell import sell_handler
 from bot.handlers.start import start_handler, start_callback_handler
-from bot.handlers.help import handler as help_handler
+from bot.handlers.help import handler as help_command_handler, callback_handler as help_callback_handler
 from bot.handlers.settings import settings_command_handler, settings_callback_handler, settings_input_handler
 from bot.handlers.positions import positions_handler
 from bot.handlers.pnl import pnl_handler
@@ -145,7 +145,8 @@ def main() -> None:
         app.add_handler(sell_handler)
         app.add_handler(watchlist_handler)
         app.add_handler(token_details_handler)
-        app.add_handler(help_handler)
+        app.add_handler(help_command_handler) 
+        app.add_handler(help_callback_handler)  
         app.add_handler(settings_command_handler)
         app.add_handler(settings_callback_handler)
         app.add_handler(settings_input_handler)
