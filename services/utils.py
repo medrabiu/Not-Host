@@ -1,12 +1,22 @@
 import logging
+import os
 from blockchain.solana.utils import get_sol_balance, get_sol_price
 from blockchain.ton.utils import get_ton_balance, get_ton_price
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from database.db import get_async_session
 from services.wallet_management import get_wallet
+import aiohttp
+from solana.rpc.async_api import AsyncClient as SolanaAsyncClient
+from spl.token.constants import TOKEN_PROGRAM_ID
+from solders.pubkey import Pubkey
 
 logger = logging.getLogger(__name__)
+
+TON_API_KEY = os.getenv("TON_API_KEY", "AGVENPU5U7V6FDQAAAAEOR3JTJPI7Q7EFPHIOEUOEVVEHZ452BPDMPC2JCBNKBBWTJMHCBI")
+IS_TESTNET = os.getenv("IS_TESTNET", "False") == "True"
+SOLANA_RPC_ENDPOINT = "https://api.mainnet-beta.solana.com"  # Adjust for testnet if needed
+
 
 async def get_wallet_balance_and_usd(wallet_address: str, chain: str) -> tuple[float, float]:
     """
@@ -46,6 +56,69 @@ async def get_wallet_balance_and_usd(wallet_address: str, chain: str) -> tuple[f
     except Exception as e:
         logger.error(f"Error in get_wallet_balance_and_usd for {wallet_address}: {str(e)}")
         return 0.0, 0.0
+
+async def get_token_balance(public_key: str, token_address: str, chain: str) -> float:
+    """
+    Fetch the token balance for a given wallet address and token on a specified chain.
+
+    Args:
+        public_key (str): The wallet address to query (Solana public key or TON address).
+        token_address (str): The token contract address (SPL token mint or jetton master address).
+        chain (str): The blockchain to use ('solana' or 'ton').
+
+    Returns:
+        float: The token balance in human-readable units (e.g., 1.5 USDT).
+
+    Raises:
+        Exception: If balance retrieval fails (caught and logged, returns 0.0).
+    """
+    try:
+        if chain.lower() == "solana":
+            # Solana SPL token balance
+            async with SolanaAsyncClient(SOLANA_RPC_ENDPOINT) as client:
+                # Get the token account address (Associated Token Account)
+                token_mint = Pubkey(token_address)
+                wallet_pubkey = Pubkey(public_key)
+                ata = Pubkey.find_program_address(
+                    [bytes(wallet_pubkey), bytes(TOKEN_PROGRAM_ID), bytes(token_mint)],
+                    TOKEN_PROGRAM_ID
+                )[0]
+
+                # Fetch token account balance
+                response = await client.get_token_account_balance(ata)
+                if "result" in response and "value" in response["result"]:
+                    amount = int(response["result"]["value"]["amount"])
+                    decimals = int(response["result"]["value"]["decimals"])
+                    balance = amount / 10**decimals
+                    logger.info(f"Solana token balance for {public_key} ({token_address}): {balance}")
+                    return balance
+                else:
+                    logger.warning(f"No token account found for {public_key} with mint {token_address}")
+                    return 0.0
+
+        elif chain.lower() == "ton":
+            # TON jetton balance via TonAPI
+            url = f"https://{'testnet.' if IS_TESTNET else ''}tonapi.io/v2/accounts/{public_key}/jettons/{token_address}"
+            headers = {"Authorization": f"Bearer {TON_API_KEY}"}
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, headers=headers) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        balance_nano = int(data.get("balance", 0))  # Nano units
+                        # Fetch jetton decimals (assuming 9 if not provided; ideally fetch from contract)
+                        decimals = 9  # Adjust if you have a way to fetch this dynamically
+                        balance = balance_nano / 10**decimals
+                        logger.info(f"TON jetton balance for {public_key} ({token_address}): {balance}")
+                        return balance
+                    else:
+                        logger.error(f"Failed to fetch TON jetton balance: {response.status}, {await response.text()}")
+                        return 0.0
+        else:
+            logger.error(f"Unsupported chain for token balance: {chain}")
+            return 0.0
+    except Exception as e:
+        logger.error(f"Error fetching token balance for {public_key} on {chain}: {str(e)}")
+        return 0.0
 
 async def refresh_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, callback_data: str, prev_message_func: callable) -> None:
     """
