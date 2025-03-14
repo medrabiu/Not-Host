@@ -18,7 +18,7 @@ async def buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
     await query.answer()
     user_id = str(update.effective_user.id)
 
-    if query.data == "execute_trade":
+    if query.data == "buy_execute_trade":
         return await confirm_buy(update, context)
 
     if query.data.startswith("set_amount"):
@@ -65,7 +65,7 @@ async def token_address_handler(update: Update, context: ContextTypes.DEFAULT_TY
     keyboard = [
         [InlineKeyboardButton(f"Slippage: {context.user_data['slippage']}%", callback_data="set_slippage"),
          InlineKeyboardButton(f"Amount: {context.user_data['buy_amount']} {unit}", callback_data="set_amount")],
-        [InlineKeyboardButton("Execute Trade", callback_data="execute_trade"),
+        [InlineKeyboardButton("Execute Trade", callback_data="buy_execute_trade"),
          InlineKeyboardButton("Refresh", callback_data="refresh_token")],
         [InlineKeyboardButton("Main Menu", callback_data="main_menu")]
     ]
@@ -130,7 +130,7 @@ async def refresh_token(update: Update, context: ContextTypes.DEFAULT_TYPE, from
     keyboard = [
         [InlineKeyboardButton(f"Slippage: {slippage}%", callback_data="set_slippage"),
          InlineKeyboardButton(f"Amount: {buy_amount} {unit}", callback_data="set_amount")],
-        [InlineKeyboardButton("Execute Trade", callback_data="execute_trade"),
+        [InlineKeyboardButton("Execute Trade", callback_data="buy_execute_trade"),
          InlineKeyboardButton("Refresh", callback_data="refresh_token")],
         [InlineKeyboardButton("Main Menu", callback_data="main_menu")]
     ]
@@ -213,7 +213,7 @@ async def cancel_buy(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 buy_conv_handler = ConversationHandler(
     entry_points=[
         CallbackQueryHandler(buy_handler, pattern="^buy$"),
-        CallbackQueryHandler(buy_handler, pattern="^execute_trade$"),
+        CallbackQueryHandler(buy_handler, pattern="^buy_execute_trade$"),
         CallbackQueryHandler(buy_handler, pattern="^set_amount$"),
         CallbackQueryHandler(buy_handler, pattern="^set_slippage$"),
         CallbackQueryHandler(buy_handler, pattern="^refresh_token$"),
@@ -223,7 +223,7 @@ buy_conv_handler = ConversationHandler(
         SET_AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_amount_handler)],
         SET_SLIPPAGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_slippage_handler)],
         CONFIRM: [
-            CallbackQueryHandler(buy_handler, pattern="^(execute_trade|set_amount|set_slippage|refresh_token)$"),
+            CallbackQueryHandler(buy_handler, pattern="^(buy_execute_trade|set_amount|set_slippage|refresh_token)$"),
             CallbackQueryHandler(cancel_buy, pattern="^main_menu$"),
         ]
     },
