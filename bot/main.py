@@ -7,10 +7,10 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 from telegram.error import BadRequest
 from database.db import get_async_session, get_user, add_user
-from bot.handlers.buy import buy_handler
+from bot.handlers.buy import buy_handler, buy_conv_handler
 from bot.handlers.wallet import wallet_handler, wallet_callbacks
 from bot.handlers.token_details import token_details_handler
-from bot.handlers.sell import sell_handler
+from bot.handlers.sell import sell_handler, sell_conv_handler
 from bot.handlers.start import start_handler, start_callback_handler
 from bot.handlers.settings import settings_handler  
 from bot.handlers.help import handler as help_command_handler, callback_handler as help_callback_handler
@@ -77,9 +77,22 @@ async def main_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     if query.data == "main_menu":
         await query.edit_message_text("Welcome to Not-Cotrader! Choose an option:", reply_markup=MAIN_MENU)
         logger.info(f"User {update.effective_user.id} returned to main menu")
+    elif query.data == "buy":
+        await buy_handler(update, context)  # Delegate to buy_handler
+    elif query.data == "sell":
+        await sell_handler(update, context)  # Delegate to sell_handler
     elif query.data == "settings":
-        await settings_handler(update, context)  # Call the settings handler directly
-    
+        await settings_handler(update, context)
+    elif query.data == "wallet":
+        await wallet_handler(update, context)
+    elif query.data == "positions":
+        await positions_handler(update, context)
+    elif query.data == "pnl":
+        await pnl_handler(update, context)
+    elif query.data == "token_list":
+        await token_list_handler(update, context)
+    elif query.data == "help":
+        await help_callback_handler(update, context)
     else:
         logger.warning(f"Unknown callback data: {query.data}")
         await query.edit_message_text("Invalid option. Use the menu below.", reply_markup=MAIN_MENU)
@@ -142,8 +155,8 @@ def main() -> None:
         app.add_handler(wallet_handler)
         for callback in wallet_callbacks:
             app.add_handler(callback)
-        app.add_handler(buy_handler)
-        app.add_handler(sell_handler)
+        app.add_handler(buy_conv_handler)
+        app.add_handler(sell_conv_handler)
         app.add_handler(watchlist_handler)
         app.add_handler(token_details_handler)
         app.add_handler(help_command_handler) 
@@ -155,7 +168,7 @@ def main() -> None:
         app.add_handler(pnl_handler)
         app.add_handler(token_list_handler)
      
-        app.add_handler(CallbackQueryHandler(main_menu_handler, pattern=r"^(main_menu|buy|sell|settings|wallet|positions|pnl|token_list|help)$"))
+        app.add_handler(CallbackQueryHandler(main_menu_handler))
 
         # Error handler
         app.add_error_handler(error_handler)

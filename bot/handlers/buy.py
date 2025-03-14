@@ -10,8 +10,11 @@ from blockchain.ton.trade import execute_ton_swap
 
 logger = logging.getLogger(__name__)
 
-# Conversation states (reintroduced SET_SLIPPAGE)
+# Conversation states
 TOKEN_ADDRESS, SET_AMOUNT, SET_SLIPPAGE, CONFIRM = range(4)
+
+# Import MAIN_MENU from main.py (we'll assume it's available)
+from handlers.constants import MAIN_MENU  # Adjust this import based on your file structure
 
 async def buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
@@ -206,10 +209,11 @@ async def confirm_buy(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
 async def cancel_buy(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
-    await query.edit_message_text("Buy cancelled.", parse_mode="Markdown")
+    await query.edit_message_text("Buy cancelled. Choose an option:", reply_markup=MAIN_MENU, parse_mode="Markdown")
     logger.info(f"User {update.effective_user.id} cancelled buy")
     return ConversationHandler.END
 
+# Define the ConversationHandler separately
 buy_conv_handler = ConversationHandler(
     entry_points=[
         CallbackQueryHandler(buy_handler, pattern="^buy$"),
@@ -230,4 +234,3 @@ buy_conv_handler = ConversationHandler(
     fallbacks=[CallbackQueryHandler(cancel_buy, pattern="^main_menu$")]
 )
 
-buy_handler = buy_conv_handler

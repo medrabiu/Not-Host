@@ -3,10 +3,11 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CallbackQueryHandler, ContextTypes, ConversationHandler, MessageHandler, filters
 from database.db import get_async_session
 from services.wallet_management import get_wallet
-from services.utils import get_wallet_balance_and_usd , get_token_balance
+from services.utils import get_wallet_balance_and_usd, get_token_balance
 from services.token_info import get_token_info, format_token_info, detect_chain
 from blockchain.solana.trade import execute_solana_swap  # Placeholder; implement this if not already done
 from blockchain.ton.sell import execute_jetton_to_ton_swap
+from handlers.constants import MAIN_MENU  # Import MAIN_MENU from constants.py
 
 logger = logging.getLogger(__name__)
 
@@ -221,7 +222,7 @@ async def confirm_sell(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 async def cancel_sell(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
-    await query.edit_message_text("Sell cancelled.", parse_mode="Markdown")
+    await query.edit_message_text("Sell cancelled. Choose an option:", reply_markup=MAIN_MENU, parse_mode="Markdown")
     logger.info(f"User {update.effective_user.id} cancelled sell")
     return ConversationHandler.END
 
@@ -244,5 +245,3 @@ sell_conv_handler = ConversationHandler(
     },
     fallbacks=[CallbackQueryHandler(cancel_sell, pattern="^main_menu$")]
 )
-
-sell_handler = sell_conv_handler
