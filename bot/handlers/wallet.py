@@ -1,3 +1,4 @@
+# bot/handlers/wallet.py
 import logging
 import base58
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -8,13 +9,15 @@ from services.utils import get_wallet_balance_and_usd, refresh_handler, main_men
 from services.crypto import CIPHER
 from solders.keypair import Keypair
 
+
 logger = logging.getLogger(__name__)
 
 WALLET_MAIN_MENU = InlineKeyboardMarkup([
     [InlineKeyboardButton("Solana Wallet", callback_data="solana_wallet"),
      InlineKeyboardButton("TON Wallet", callback_data="ton_wallet")],
-    [InlineKeyboardButton("Back", callback_data="main_menu")] 
+    [InlineKeyboardButton("Back", callback_data="main_menu")]
 ])
+
 def get_detailed_wallet_menu(chain: str) -> InlineKeyboardMarkup:
     keyboard = [
         [InlineKeyboardButton("Wallet Reset", callback_data=f"reset_{chain}_wallet"),
@@ -60,7 +63,7 @@ async def detailed_wallet_handler(update: Update, context: ContextTypes.DEFAULT_
     msg = (
         f"{chain_display} Wallet:\n"
         f"Address: `{address}`\n"
-        f"Balance: {balance:.2f} {chain_unit} (${usd_value:.2f})\n\n"
+        f"Balance: {balance:.6f} {chain_unit} (${usd_value:.2f})\n\n"
         "Import wallet if you already have one."
     )
     markup = get_detailed_wallet_menu(chain)
@@ -78,7 +81,6 @@ async def reset_wallet(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     logger.info(f"User {update.effective_user.id} requested {chain} wallet reset - stubbed")
 
 async def export_wallet(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Export the private key or mnemonic for the selected chain and auto-delete after 60 seconds."""
     query = update.callback_query
     await query.answer()
     user_id = str(update.effective_user.id)
@@ -102,7 +104,7 @@ async def export_wallet(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 exported_key = base58.b58encode(full_keypair_bytes).decode('ascii')
                 key_label = "Private Key"
             else:  # TON
-                exported_key = decrypted_bytes.decode('utf-8')  # Mnemonic is UTF-8
+                exported_key = decrypted_bytes.decode('utf-8')
                 key_label = "Mnemonic Phrase"
 
         except Exception as e:
@@ -122,7 +124,6 @@ async def export_wallet(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     )
     logger.info(f"Exported {chain_display} {key_label.lower()} for user {user_id}")
 
-    # Check if job queue is available before scheduling
     if context.job_queue:
         context.job_queue.run_once(
             lambda ctx: ctx.bot.delete_message(chat_id=sent_message.chat_id, message_id=sent_message.message_id),
@@ -141,22 +142,6 @@ async def import_wallet(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     await query.edit_message_text(f"Importing {chain} wallet - feature coming soon!", parse_mode="Markdown")
     logger.info(f"User {update.effective_user.id} requested {chain} wallet import - stubbed")
 
-async def withdraw_all(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
-    await query.answer()
-    chain = "solana" if "solana" in query.data else "ton"
-    chain_unit = "SOL" if chain == "solana" else "TON"
-    await query.edit_message_text(f"Withdrawing all {chain_unit} - feature coming soon!", parse_mode="Markdown")
-    logger.info(f"User {update.effective_user.id} requested withdraw all {chain_unit} - stubbed")
-
-async def withdraw_x(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
-    await query.answer()
-    chain = "solana" if "solana" in query.data else "ton"
-    chain_unit = "SOL" if chain == "solana" else "TON"
-    await query.edit_message_text(f"Withdrawing X {chain_unit} - feature coming soon!", parse_mode="Markdown")
-    logger.info(f"User {update.effective_user.id} requested withdraw X {chain_unit} - stubbed")
-
 wallet_handler = CallbackQueryHandler(wallet_handler, pattern="^wallet$")
 wallet_callbacks = [
     CallbackQueryHandler(detailed_wallet_handler, pattern="^(solana_wallet|ton_wallet)$"),
@@ -165,7 +150,5 @@ wallet_callbacks = [
     CallbackQueryHandler(reset_wallet, pattern="^reset_(solana|ton)_wallet$"),
     CallbackQueryHandler(export_wallet, pattern="^export_(solana|ton)_wallet$"),
     CallbackQueryHandler(import_wallet, pattern="^import_(solana|ton)_wallet$"),
-    CallbackQueryHandler(withdraw_all, pattern="^withdraw_all_(solana|ton)$"),
-    CallbackQueryHandler(withdraw_x, pattern="^withdraw_x_(solana|ton)$"),
     CallbackQueryHandler(main_menu_handler, pattern="^main_menu$")
 ]
