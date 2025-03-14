@@ -12,9 +12,9 @@ logger = logging.getLogger(__name__)
 
 WALLET_MAIN_MENU = InlineKeyboardMarkup([
     [InlineKeyboardButton("Solana Wallet", callback_data="solana_wallet"),
-     InlineKeyboardButton("TON Wallet", callback_data="ton_wallet")]
+     InlineKeyboardButton("TON Wallet", callback_data="ton_wallet")],
+    [InlineKeyboardButton("Back", callback_data="main_menu")] 
 ])
-
 def get_detailed_wallet_menu(chain: str) -> InlineKeyboardMarkup:
     keyboard = [
         [InlineKeyboardButton("Wallet Reset", callback_data=f"reset_{chain}_wallet"),
