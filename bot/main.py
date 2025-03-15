@@ -19,6 +19,7 @@ from bot.handlers.positions import positions_handler
 from bot.handlers.pnl import pnl_handler
 from bot.handlers.token_list import token_list_handler
 from bot.handlers.watchlist import watchlist_handler
+from bot.handlers.feedback import feedback_conv_handler , feedback_handler
  
 from dotenv import load_dotenv
 
@@ -94,6 +95,8 @@ async def main_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         await token_list_handler(update, context)
     elif query.data == "help":
         await help_callback_handler(update, context)
+    elif query.data == "feedback":
+        await feedback_handler(update, context)
     else:
         logger.warning(f"Unknown callback data: {query.data}")
         await query.edit_message_text("Invalid option. Use the menu below.", reply_markup=MAIN_MENU)
@@ -152,6 +155,7 @@ def main() -> None:
 
         # Register handlers (specific handlers first, catch-all last)
         app.add_handler(start_handler)
+        app.add_handler(feedback_conv_handler)
         app.add_handler(start_callback_handler)
         app.add_handler(wallet_handler)
         for callback in wallet_callbacks:
