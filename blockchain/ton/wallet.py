@@ -64,3 +64,49 @@ def create_ton_wallet(version: str = "v4R2") -> Tuple[str, str]:
     except Exception as e:
         logger.error(f"Failed to create TON wallet: {str(e)}")
         raise ValueError(f"TON wallet creation failed: {str(e)}")
+
+# for consistency 
+"""
+
+=
+import logging
+import os
+from tonutils.client import TonapiClient
+from tonutils.wallet import WalletV4R2
+from services.crypto import CIPHER
+from typing import Tuple
+
+logger = logging.getLogger(__name__)
+
+def create_ton_wallet(version: str = "v4R2") -> Tuple[str, str]:
+    ""
+    Generate a new TON custodial wallet with a specified version (defaults to v4R2).
+    Args:
+        version (str, optional): Wallet version to use. Currently supports 'v4R2'.
+    Returns:
+        Tuple[str, str]: (public_address, encrypted_mnemonic)
+    Raises:
+        ValueError: If wallet creation fails or API key is missing.
+    ""
+    try:
+        api_key = os.getenv("TON_API_KEY")
+        if not api_key:
+            raise ValueError("TON_API_KEY environment variable is not set")
+        is_testnet = os.getenv("TON_IS_TESTNET", "False").lower() == "true"
+        client = TonapiClient(api_key=api_key, is_testnet=is_testnet)
+
+        if version != "v4R2":
+            logger.warning(f"Only v4R2 supported; ignoring version {version}")
+        wallet, _, _, mnemonic = WalletV4R2.create(client)
+        
+        address = wallet.address.to_str(is_user_friendly=True, is_bounceable=False).strip()
+        mnemonic_str = " ".join(mnemonic)
+        encrypted_mnemonic = CIPHER.encrypt(mnemonic_str.encode('utf-8')).decode('utf-8')
+
+        logger.info(f"Generated TON wallet: {address} (version: v4R2)")
+        return address, encrypted_mnemonic
+
+    except Exception as e:
+        logger.error(f"Failed to create TON wallet: {str(e)}")
+        raise ValueError(f"TON wallet creation failed: {str riased ValueError(f"TON wallet creation failed: {str(e)}")
+"""

@@ -5,9 +5,9 @@ from database.db import get_async_session
 from services.wallet_management import get_wallet
 from services.utils import get_wallet_balance_and_usd, get_token_balance
 from services.token_info import get_token_info, format_token_info, detect_chain
-from blockchain.solana.trade import execute_solana_swap  # Placeholder; implement this if not already done
+from blockchain.solana.trade import execute_solana_swap  # Placeholder for sell swap if needed
 from blockchain.ton.sell import execute_jetton_to_ton_swap
-from handlers.constants import MAIN_MENU  # Import MAIN_MENU from constants.py
+from handlers.constants import MAIN_MENU
 
 logger = logging.getLogger(__name__)
 
@@ -18,8 +18,10 @@ async def sell_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     query = update.callback_query
     await query.answer()
     user_id = str(update.effective_user.id)
+    logger.debug(f"sell_handler called with callback: {query.data} for user {user_id}")
 
     if query.data == "sell_execute_trade":
+        logger.debug(f"Execute Trade button pressed for user {user_id}")
         return await confirm_sell(update, context)
 
     if query.data.startswith("set_amount"):
@@ -48,10 +50,8 @@ async def token_address_handler(update: Update, context: ContextTypes.DEFAULT_TY
         if not wallet:
             await update.message.reply_text(f"No {chain.capitalize()} wallet found. Create one first!", parse_mode="Markdown")
             return ConversationHandler.END
-        # For sell, we need token balance, not native currency balance
-        # Assuming get_token_balance exists or is added to services.utils
         token_balance = await get_token_balance(wallet.public_key, token_address, chain)
-        wallet_balance, _ = await get_wallet_balance_and_usd(wallet.public_key, chain)  # Still fetch TON/SOL for gas
+        wallet_balance, _ = await get_wallet_balance_and_usd(wallet.public_key, chain)
 
     result = await get_token_info(token_address)
     if not result:
@@ -151,17 +151,23 @@ async def confirm_sell(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     query = update.callback_query
     await query.answer()
     user_id = str(update.effective_user.id)
+    logger.debug(f"confirm_sell called for user {user_id}")
 
-    token_address = context.user_data["token_address"]
-    chain = context.user_data["chain"]
-    amount = context.user_data["sell_amount"]
-    slippage = context.user_data["slippage"]
+    token_address = context.user_data.get("token_address")
+    chain = context.user_data.get("chain")
+    amount = context.user_data.get("sell_amount")
+    slippage = context.user_data.get("slippage")
     unit = "SOL" if chain == "solana" else "TON"
+
+    if not all([token_address, chain, amount, slippage]):
+        logger.error(f"Missing context data for sell: {context.user_data}")
+        await query.edit_message_text("Error: Missing trade details. Please start over.", parse_mode="Markdown")
+        return ConversationHandler.END
 
     async with await get_async_session() as session:
         wallet = await get_wallet(user_id, chain, session)
         token_balance = await get_token_balance(wallet.public_key, token_address, chain)
-        wallet_balance, _ = await get_wallet_balance_and_usd(wallet.public_key, chain)  # For gas check
+        wallet_balance, _ = await get_wallet_balance_and_usd(wallet.public_key, chain)
 
     if token_balance < amount:
         await query.edit_message_text(
@@ -171,8 +177,7 @@ async def confirm_sell(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
         )
         return ConversationHandler.END
 
-    # Check TON/SOL balance for gas (rough estimate)
-    gas_buffer = 0.01 if chain == "solana" else 0.2  # SOL or TON
+    gas_buffer = 0.01 if chain == "solana" else 0.2
     if wallet_balance < gas_buffer:
         await query.edit_message_text(
             f"Insufficient {unit} for gas. You have {wallet_balance:.6f} {unit}, need at least {gas_buffer:.6f}.",
@@ -185,6 +190,7 @@ async def confirm_sell(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 
     try:
         if chain == "solana":
+            # Placeholder: Replace with actual Solana sell function
             swap_result = await execute_solana_sell_swap(wallet, token_address, amount, slippage)
             output_amount = swap_result["output_amount"] / 1_000_000_000  # Assuming SOL output in lamports
             tx_id = swap_result["tx_id"]
@@ -196,9 +202,8 @@ async def confirm_sell(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
                 f"Tx: [Solscan](https://solscan.io/tx/{tx_id})"
             )
         elif chain == "ton":
-            # Convert slippage percentage to basis points (5% = 500 bps)
             swap_result = await execute_jetton_to_ton_swap(wallet, token_address, amount, int(slippage * 100))
-            output_amount = swap_result["output_amount"] / 1_000_000_000  # TON in nanoTON
+            output_amount = swap_result.get("output_amount", 0) / 1_000_000_000  # TON in nanoTON
             tx_id = swap_result["tx_id"]
             msg = (
                 f"{formatted_info}\n\n"
