@@ -8,9 +8,9 @@ logger = logging.getLogger(__name__)
 # ======== Configuration ========
 IS_TESTNET = False
 # API Keys and URLs
-TON_API_KEY = "YOUR_TONCENTER_API_KEY_HERE"  # os.getenv()
+TON_KEY = os.getenv("TON_KEY") #  from toncenter via tg
 
-# Use different URLs for testnet and mainnet
+
 TON_API_URL = "https://testnet.toncenter.com/api/v2" if IS_TESTNET else "https://toncenter.com/api/v2"
 COINGECKO_API_URL = "https://api.coingecko.com/api/v3"
 
@@ -31,7 +31,7 @@ async def get_ton_balance(wallet_address: str) -> float:
     try:
         encoded_address = quote(wallet_address, safe="")
         url = f"{TON_API_URL}/getAddressInformation?address={encoded_address}"
-        headers = {"X-API-Key": TON_API_KEY} if TON_API_KEY != "YOUR_TONCENTER_API_KEY_HERE" else {}
+        headers = {"X-API-Key": TON_KEY} if TON_KEY != "YOUR_TONCENTER_API_KEY_HERE" else {}
 
         async with aiohttp.ClientSession() as session:
             logger.info(f"Querying TON balance ({'Testnet' if IS_TESTNET else 'Mainnet'}): {wallet_address}")

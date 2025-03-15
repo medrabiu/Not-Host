@@ -1,4 +1,3 @@
-# blockchain/ton/withdraw.py
 import logging
 import os
 from tonutils.client import TonapiClient
@@ -21,7 +20,7 @@ async def send_ton_transaction(mnemonic: str, destination_address: str, nano_amo
         Exception: If the transaction fails.
     """
     try:
-        # Load Tonapi API key from environment
+        
         api_key = os.getenv("TON_API_KEY")
         if not api_key:
             raise ValueError("TON_API_KEY environment variable is not set")
