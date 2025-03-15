@@ -19,7 +19,7 @@ from bot.handlers.positions import positions_handler
 from bot.handlers.pnl import pnl_handler
 from bot.handlers.token_list import token_list_handler
 from bot.handlers.watchlist import watchlist_handler
-from bot.handlers.withdraw import withdraw_conv_handler
+ 
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -168,7 +168,7 @@ def main() -> None:
         app.add_handler(positions_handler)
         app.add_handler(pnl_handler)
         app.add_handler(token_list_handler)
-        app.add_handler(withdraw_conv_handler)
+      
      
         app.add_handler(CallbackQueryHandler(main_menu_handler))
 
