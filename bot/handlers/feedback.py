@@ -5,12 +5,14 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, ConversationHandler, MessageHandler, filters, CallbackQueryHandler
 
 logger = logging.getLogger(__name__)
+from dotenv import load_dotenv
+load_dotenv()
 
 # Define states for the conversation
 FEEDBACK_TEXT = 0
 
-# Fetch Telegram channel ID from environment
-FEEDBACK_CHANNEL_ID ="-1002294838995"
+
+FEEDBACK_CHANNEL_ID =os.getenv("FEEDBACK_CHANNEL_ID")
 if not FEEDBACK_CHANNEL_ID:
     logger.critical("FEEDBACK_CHANNEL_ID is missing from the environment!")
     raise ValueError("FEEDBACK_CHANNEL_ID must be set in .env")
@@ -39,7 +41,7 @@ async def receive_feedback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     feedback_message = (
         f"New Feedback Received\n"
         f"From: {user.full_name} (ID: {user.id})\n"
-        f"Username: @{user.username if user.username else 'N/A'}\n"
+        f"Username: @{user.username if user.username else 'N/A'}\n" # pulic for now can be anonymous best practice
         f"Message: {feedback_text}"
     )
     
@@ -54,7 +56,7 @@ async def receive_feedback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         
         # Confirm with the user
         await update.message.reply_text(
-            "Thank you for your feedback! It has been successfully submitted.",
+            "Thank you for your feedback! It has been successfully submitted. stay in touch",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Main Menu", callback_data="main_menu")]])
         )
     except Exception as e:
