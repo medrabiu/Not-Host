@@ -57,8 +57,13 @@ TON_API_KEY="your_ton_api_key"
 Alternatively, set these as environment variables:
 
 ```bash
-export TELEGRAM_TOKEN="your_telegram_bot_token"
-export TON_API_KEY="your_ton_api_key"
+TELEGRAM_TOKEN=
+API_KEY=
+IS_TESTNET=FALSE
+TON_API_KEY=
+TON_IS_TESTNET=FALSE
+FEEDBACK_CHANNEL_ID=
+TON_KEY=
 ```
 
 
@@ -102,42 +107,54 @@ In Telegram, send /start to the bot.
 ### Project Structure
 ```bash
 not-cotrader/
+not-cotrader/
 ├── bot/
 │   ├── handlers/
-│   │   ├── buy.py         # Buy conversation handler
+│   │   ├── buy.py         # Buy conversation handler (updated to support AI mode)
+│   │   ├── feedback.py   
+│   │   ├── constants.py
+│   │   ├── common.py
 │   │   ├── help.py        # Help message handler
-│   │   ├── positions.py   # Positions preview handler
+│   │   ├── positions.py   # Positions preview handler (updated for AI dashboard)
 │   │   ├── pnl.py         # PnL preview handler
-│   │   ├── sell.py        # Sell handler (placeholder)
+│   │   ├── sell.py        # Sell handler (updated to support AI mode)
 │   │   ├── settings.py    # Chain-specific settings handler
-│   │   ├── start.py       # Start and wallet setup handler
-│   │   ├── token_details.py # Token info handler
-│   │   ├── token_list.py  # Token list preview handler
+│   │   ├── start.py       # Start and wallet setup handler (updated for AI toggle)
+│   │   ├── token_details.py # Token info handler (updated for AI news)
+│   │   ├── token_list.py  # Token list preview handler (updated for trending tokens)
 │   │   ├── wallet.py      # Wallet management handler
-│   ├── main.py            # Bot entry point and handler registration
+│   ├── ai/                # New AI-related module
+│   │   ├── agent.py       # LangGraph agent definition
+│   │   ├── grokcloud.py   # GrokCloud API client
+│   │   ├── tools.py       # Custom tools (e.g., price checker, search)
+│   │   ├── __init__.py
+│   ├── main.py            # Bot entry point (updated to include AI mode toggle)
 │   ├── __init__.py        # Initialize db
 ├── blockchain/
 │   ├── solana/
-│   │   ├── trade.py      # Solana swap logic (Jupiter DEX)
+│   │   ├── trade.py      # Solana swap logic (updated to expose API for AI)
 │   │   ├── token.py      # Solana token utilities
 │   │   ├── wallet.py     # Solana wallet creation
 │   │   ├── utils.py      # Solana utilities
+│   │   ├── withdraw.py
 │   ├── ton/
-│   │   ├── trade.py      # TON swap logic (STON.fi)
+│   │   ├── trade.py      # TON swap logic (updated to expose API for AI)
 │   │   ├── token.py      # TON token utilities
 │   │   ├── wallet.py     # TON wallet creation
 │   │   ├── utils.py      # TON utilities
+│   │   ├── withdraw.py
 ├── database/
 │   ├── db.py             # Database session and models
+│   ├── models.py         # Updated to store AI-related state (e.g., limit orders)
 ├── services/
 │   ├── crypto.py         # Encryption utilities
-│   ├── token_info.py     # Token info fetching and formatting
-│   ├── utils.py          # General utilities (e.g., balance fetching)
+│   ├── token_info.py     # Token info fetching (updated for AI search)
+│   ├── utils.py          # General utilities
 │   ├── wallet_management.py # Wallet CRUD operations
-├── tests/                # Test cases (incomplete)
-├── requirements.txt      # Project dependencies
-├── .env                  # Environment variables (not tracked)
-├── README.md             # This file
+├── tests/                # Test cases 
+├── requirements.txt      # Updated dependencies 
+├── .env                  # 
+├── README.md             #
 ```
 
 ## Contributing
