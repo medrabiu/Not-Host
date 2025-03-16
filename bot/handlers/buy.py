@@ -175,6 +175,7 @@ async def confirm_buy(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
         if chain == "solana":
             swap_result = await execute_solana_swap(wallet, token_address, amount, slippage)
             output_amount = swap_result["output_amount"] / 1_000_000_000
+            entry_price = amount / output_amount if output_amount > 0 else 0.0 
             tx_id = swap_result["tx_id"]
             msg = (
                 f"{formatted_info}\n\n"
@@ -186,6 +187,7 @@ async def confirm_buy(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
         elif chain == "ton":
             swap_result = await execute_ton_swap(wallet, token_address, amount, slippage)
             output_amount = swap_result["output_amount"] / 1_000_000_000
+            entry_price = amount / output_amount if output_amount > 0 else 0.0 
             tx_id = swap_result["tx_id"]
             msg = (
                 f"{formatted_info}\n\n"
@@ -196,6 +198,14 @@ async def confirm_buy(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
             )
         else:
             raise ValueError(f"Unsupported chain: {chain}")
+        
+        # Store position data
+        if "positions" not in context.user_data:
+            context.user_data["positions"] = {}
+        context.user_data["positions"][token_address] = {
+            "entry_price": entry_price,
+            "chain": chain
+        }
 
         await query.edit_message_text(msg, parse_mode="Markdown")
         logger.info(f"User {user_id} executed buy {amount} {unit} of {token_address} on {chain}")

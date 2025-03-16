@@ -8,8 +8,7 @@ logger = logging.getLogger(__name__)
 # ======== Configuration ========
 IS_TESTNET = False
 # API Keys and URLs
-TON_KEY = os.getenv("TON_KEY") #  from toncenter via tg
-
+TON_KEY = "10e841ca2386a37d2fd7bdef7bdd271143da092418ff3337cfc45b2bd5f1d73e"
 
 TON_API_URL = "https://testnet.toncenter.com/api/v2" if IS_TESTNET else "https://toncenter.com/api/v2"
 COINGECKO_API_URL = "https://api.coingecko.com/api/v3"
