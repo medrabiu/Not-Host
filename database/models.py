@@ -22,6 +22,7 @@ class User(Base):
     id = Column(Integer, primary_key=True)
     telegram_id = Column(String, unique=True, nullable=False, index=True)
     has_wallet = Column(Boolean, default=False)
+    ai_mode = Column(Boolean, default=False)
     wallets = relationship("Wallet", back_populates="user")  # Relationship to Wallet
     watchlist = relationship("Watchlist", back_populates="user")  
 

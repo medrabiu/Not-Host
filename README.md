@@ -107,7 +107,6 @@ In Telegram, send /start to the bot.
 ### Project Structure
 ```bash
 not-cotrader/
-not-cotrader/
 ├── bot/
 │   ├── handlers/
 │   │   ├── buy.py         # Buy conversation handler (updated to support AI mode)

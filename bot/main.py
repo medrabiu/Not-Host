@@ -4,9 +4,10 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes, MessageHandler,filters
 from telegram.error import BadRequest
-from database.db import get_async_session, get_user, add_user
+from sqlalchemy.ext.asyncio import AsyncSession
+from database.db import get_async_session, get_user, add_user, update_user_ai_mode
 from bot.handlers.buy import buy_handler, buy_conv_handler
 from bot.handlers.wallet import wallet_handler, wallet_callbacks
 from bot.handlers.token_details import token_details_handler
@@ -20,8 +21,9 @@ from bot.handlers.pnl import pnl_handler
 from bot.handlers.token_list import token_list_handler
 from bot.handlers.watchlist import watchlist_handler
 from bot.handlers.feedback import feedback_conv_handler , feedback_handler
- 
+from bot.ai.agents.trading_agent import trading_agent
 from dotenv import load_dotenv
+from langchain_core.messages import HumanMessage
 
 load_dotenv()
 # Configure logging to save to a file
@@ -54,6 +56,65 @@ MAIN_MENU = InlineKeyboardMarkup([
      InlineKeyboardButton("Feedback", callback_data="feedback")],
     [InlineKeyboardButton("Help", callback_data="help")]
 ])
+
+async def toggle_ai_mode(user_id: int, sess: AsyncSession, current_mode: bool) -> bool:
+    """Toggle AI mode in the database."""
+    new_mode = not current_mode
+    await update_user_ai_mode(user_id, sess, new_mode)
+    return new_mode
+
+async def ai_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle /ai command to toggle AI mode and greet the agent when turned on."""
+    user_id = update.effective_user.id
+    async with await get_async_session() as session:
+        user = await get_user(user_id, session)
+        if not user:
+            await add_user(user_id, session)
+            user = await get_user(user_id, session)
+        new_mode = await toggle_ai_mode(user_id, session, user.ai_mode)
+        
+        if new_mode:
+            await update.message.reply_text("AI Mode is now ON. Let’s chat!")
+            state = {"messages": [HumanMessage(content="Hi")], "output": ""}
+            logger.info(f"Invoking agent with state: {state}")
+            try:
+                result = trading_agent.invoke(state)
+                logger.info(f"Agent result: {result}")
+                await update.message.reply_text(result["output"])
+                context.user_data["ai_messages"] = result["messages"]
+            except Exception as e:
+                logger.error(f"Agent invocation failed: {str(e)}")
+                await update.message.reply_text("Oops, AI hiccup! Try again.")
+        else:
+            await update.message.reply_text("AI Mode is now OFF. Back to normal bot mode.")
+            context.user_data.pop("ai_messages", None)
+        
+        logger.info(f"User {user_id} toggled AI mode to {new_mode}")
+
+async def ai_message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle natural language inputs when AI mode is on."""
+    user_id = update.effective_user.id
+    async with await get_async_session() as session:
+        user = await get_user(user_id, session)
+        if not user or not user.ai_mode:
+            return
+
+    user_input = update.message.text
+    logger.info(f"User {user_id} sent AI input: {user_input}")
+
+    messages = context.user_data.get("ai_messages", [])
+    messages.append(HumanMessage(content=user_input))
+    state = {"messages": messages, "output": ""}
+    
+    try:
+        result = trading_agent.invoke(state)
+        response = result["output"]
+        context.user_data["ai_messages"] = result["messages"]
+        await update.message.reply_text(response)
+    except Exception as e:
+        logger.error(f"Agent invocation failed: {str(e)}")
+        await update.message.reply_text("AI glitch! Let’s try that again.")
+
 
 async def main_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
@@ -154,12 +215,14 @@ def main() -> None:
         app = Application.builder().token(TELEGRAM_TOKEN).build()
 
         # Register handlers (specific handlers first, catch-all last)
+        app.add_handler(CommandHandler("ai", ai_command))  # AI toggle command
         app.add_handler(start_handler)
         app.add_handler(feedback_conv_handler)
         app.add_handler(start_callback_handler)
         app.add_handler(wallet_handler)
         for callback in wallet_callbacks:
             app.add_handler(callback)
+        app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, ai_message_handler))  # AI handler
         app.add_handler(buy_conv_handler)
         app.add_handler(sell_conv_handler)
         app.add_handler(watchlist_handler)
