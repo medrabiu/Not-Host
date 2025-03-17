@@ -1,10 +1,8 @@
 from typing import Annotated
-from langgraph.graph import MessagesState
-from langchain_core.messages import AnyMessage, HumanMessage, AIMessage
+from langchain_core.messages import AnyMessage
 from langgraph.graph.message import add_messages
+from typing import Annotated, TypedDict
 
-# Custom state with messages managed by add_messages
-class AgentState(MessagesState):
-    # messages is inherited from MessagesState and annotated with add_messages
+class AgentState(TypedDict):
     messages: Annotated[list[AnyMessage], add_messages]
-    output: str  # Keep output for the final response
+    user_id: int

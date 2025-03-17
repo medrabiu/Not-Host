@@ -1,38 +1,55 @@
-from langgraph.graph import StateGraph, END
+from langgraph.graph import StateGraph, START, END
+from langgraph.graph.message import add_messages
+from langgraph.prebuilt import ToolNode, tools_condition
+from langgraph.checkpoint.memory import MemorySaver
 from bot.ai.state.agent_state import AgentState
-from bot.ai.prompts.trading_prompts import TRADING_PROMPT
-from bot.ai.groq_client import query_groq
-from langchain_core.messages import HumanMessage, AIMessage
+from bot.ai.tools.wallet_tools import show_wallet_info, export_wallet_key, withdraw_tokens
+from langchain_groq import ChatGroq
+from langchain_core.messages import AIMessage
 import logging
 
 logger = logging.getLogger(__name__)
 
-def process_input(state: AgentState) -> AgentState:
+# Define tools
+tools = [show_wallet_info, export_wallet_key, withdraw_tokens]
+
+# Initialize ChatGroq with the latest model
+llm = ChatGroq(
+    model="llama-3.3-70b-versatile",
+    temperature=0.7,
+    max_tokens=100
+).bind_tools(tools)
+
+# Define the chatbot node
+async def chatbot(state: AgentState) -> AgentState:
     logger.info(f"Processing state: {state}")
+    user_id = state["user_id"]
+    messages = state["messages"]
     
-    # Get the latest user input (last message)
-    user_input = state["messages"][-1].content if state["messages"] else "Hi"
+    # Invoke the LLM with the current messages
+    response = await llm.ainvoke(messages)
     
-    # Format history for the prompt
-    history = "\n".join(
-        [f"{msg.type}: {msg.content}" for msg in state["messages"][:-1]]
-    ) if len(state["messages"]) > 1 else "No chit-chat yet!"
+    if response.tool_calls:
+        # Add the tool call message to the state
+        messages.append(response)
+        # Prepare tool calls with correct user_id
+        for tool_call in response.tool_calls:
+            tool_call["args"]["user_id"] = user_id  # Ensure user_id is correct
+    else:
+        messages.append(AIMessage(content=response.content))
     
-    # Query Groq
-    prompt = TRADING_PROMPT.format(history=history, input=user_input)
-    response = query_groq(prompt)
-    
-    # Update state
-    state["output"] = response
-    state["messages"].append(AIMessage(content=response))
-    
-    logger.info(f"Processed input '{user_input}' with output '{response}'")
-    return state
+    return {"messages": messages}
 
 # Build the graph
-graph = StateGraph(AgentState)
-graph.add_node("process", process_input)
-graph.set_entry_point("process")
-graph.add_edge("process", END)
+graph_builder = StateGraph(AgentState)
+graph_builder.add_node("chatbot", chatbot)
+graph_builder.add_node("tools", ToolNode(tools))
 
-trading_agent = graph.compile()
+# Define edges
+graph_builder.add_edge(START, "chatbot")
+graph_builder.add_conditional_edges("chatbot", tools_condition, {"tools": "tools", END: END})
+graph_builder.add_edge("tools", "chatbot")
+
+# Add memory
+memory = MemorySaver()
+trading_agent = graph_builder.compile(checkpointer=memory)
