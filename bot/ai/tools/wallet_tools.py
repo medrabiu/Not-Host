@@ -7,6 +7,7 @@ from services.crypto import CIPHER
 from solders.keypair import Keypair
 from blockchain.ton.withdraw import send_ton_transaction
 import base58
+from services.token_info import get_token_info, detect_chain
 from langchain_core.tools import tool
 
 logger = logging.getLogger(__name__)
@@ -101,3 +102,38 @@ async def withdraw_tokens(user_id: int, chain: str, amount: float, destination_a
         except Exception as e:
             logger.error(f"Withdrawal failed for user {user_id}: {str(e)}")
             return f"Withdrawal failed: {str(e)}"
+
+
+@tool
+async def get_token_details(token_address: str) -> str:
+    """Fetch liquidity and market cap for a token address."""
+    try:
+        chain = detect_chain(token_address)
+        result = await get_token_info(token_address)
+        if not result:
+            return "No dice, fam! Couldn’t snag details for that token."
+        
+        token_info, _ = result
+        liquidity = (
+            f"${token_info['liquidity']/1000:.2f}k" if token_info['liquidity'] >= 1000
+            else f"${token_info['liquidity']:.2f}" if token_info['liquidity'] > 0 else "Nil"
+        )
+        market_cap = (
+            f"${token_info['market_cap']/1000000:.2f}m" if token_info['market_cap'] >= 1000000
+            else f"${token_info['market_cap']/1000:.2f}k" if token_info['market_cap'] > 0 else "Nil"
+        )
+        name = token_info.get("name", "Unknown")
+        symbol = token_info.get("symbol", "N/A")
+        
+        return (
+            f"Token scoop for `{token_address}`:\n"
+            f"📛 Name: {name} ({symbol})\n"
+            f"🌊 Liquidity: {liquidity}\n"
+            f"💰 Market Cap: {market_cap}"
+        )
+    except ValueError:
+        return "That’s a dodgy address, mate! Needs to be a proper Solana or TON token."
+    except Exception as e:
+        logger.error(f"Error fetching token details for {token_address}: {str(e)}")
+        return "Whoops, hit a snag grabbing that token’s deets!"
+    

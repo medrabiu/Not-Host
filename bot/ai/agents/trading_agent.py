@@ -3,7 +3,7 @@ from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode, tools_condition
 from langgraph.checkpoint.memory import MemorySaver
 from bot.ai.state.agent_state import AgentState
-from bot.ai.tools.wallet_tools import show_wallet_info, export_wallet_key, withdraw_tokens
+from bot.ai.tools.wallet_tools import show_wallet_info, export_wallet_key, withdraw_tokens,get_token_details
 from langchain_groq import ChatGroq
 from langchain_core.messages import AIMessage
 import logging
@@ -11,7 +11,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Define tools
-tools = [show_wallet_info, export_wallet_key, withdraw_tokens]
+tools = [show_wallet_info, export_wallet_key, withdraw_tokens,get_token_details]
 
 # Initialize ChatGroq with the latest model
 llm = ChatGroq(
