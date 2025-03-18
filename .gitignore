@@ -4,6 +4,7 @@ __pycache__/
 *$py.class
 
 *.db
+bot.db
 # C extensions
 *.so
 9
