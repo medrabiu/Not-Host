@@ -43,6 +43,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         async with await get_async_session() as session:
             db_user = await get_user(telegram_id, session)
             if not db_user:
+
+                
                 # New user: Add to DB and show welcome message with Agree button
                 await add_user(telegram_id, session)
                 await session.commit()
@@ -116,9 +118,9 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                 "⬆️ *TON Connect*: Top up TON via your main wallet."
             )
             keyboard = InlineKeyboardMarkup([
-                [InlineKeyboardButton("🏠 Main Menu", callback_data="main_menu"),
-                 InlineKeyboardButton("Import Wallet", callback_data="import_wallet"),
-                 InlineKeyboardButton("TON Connect Topup", url=f"ton://transfer/{ton_wallet.public_key}?amount=0")]
+                [InlineKeyboardButton("🏠 Main Menu", callback_data="main_menu")],
+                 [InlineKeyboardButton("Import Wallet", callback_data="import_wallet")],
+                 [InlineKeyboardButton("TON Connect Topup", url=f"ton://transfer/{ton_wallet.public_key}?amount=0")]
             ])
             await query.edit_message_text(setup_msg, reply_markup=keyboard, parse_mode="Markdown")
             logger.info(f"Displayed wallet setup for user {user_id}")
@@ -139,12 +141,17 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             ton_balance, ton_usd = await get_wallet_balance_and_usd(ton_address, "ton") if ton_wallet else (0.0, 0.0)
 
             trading_msg = (
-                "🔄 *Not-Cotrader*\n\n"
-                f"💧 SOL Price: ${sol_price:.2f}  |  💎 TON Price: ${ton_price:.2f}\n\n"
-                f"💧 *Sol-Wallet*: {sol_balance:.4f} SOL (${sol_usd:.2f})\n`{sol_address}`\n(tap to copy)\n\n"
-                f"💎 *TON-Wallet*: {ton_balance:.4f} TON (${ton_usd:.2f})\n`{ton_address}`\n(tap to copy)\n\n"
-                "Start trading by typing a mint/contract address or use the menu below:"
-            )
+                   "🤖 *Not-Cotrader — Your Smart Trading Sidekick*\n\n"
+                    f"💧 SOL Price: ${sol_price:.2f}  |  💎 TON Price: ${ton_price:.2f}\n\n"
+                    f"💧 *Sol-Wallet*: {sol_balance:.4f} SOL (${sol_usd:.2f})\n`{sol_address}`\n(tap to copy)\n\n"
+                    f"💎 *TON-Wallet*: {ton_balance:.4f} TON (${ton_usd:.2f})\n`{ton_address}`\n(tap to copy)\n\n"
+                    "⚡ *How to Trade:*\n"
+                    "1. Type a mint/contract address to start trading.\n"
+                    "2. Or use the menu below for quick actions.\n\n"
+                    "🧠 *AI Mode:* Use `/ai` to turn the AI *on* or *off*. When AI’s on, just chat — Co-Trader gets you. When off, go full degen with commands.\n\n"
+                    "Ready to dive in? Let’s trade! 🚀"
+                )
+
             await query.edit_message_text(trading_msg, reply_markup=TRADING_MENU, parse_mode="Markdown")
             logger.info(f"Displayed trading interface for user {user_id} after {query.data}")
 
