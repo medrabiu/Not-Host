@@ -1,6 +1,6 @@
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import MessageHandler, filters, ContextTypes
+from telegram.ext import ContextTypes  # No need for MessageHandler here
 from services.token_info import get_token_info, format_token_info, detect_chain
 from database.db import get_async_session
 from services.wallet_management import get_wallet
@@ -10,11 +10,11 @@ logger = logging.getLogger(__name__)
 
 async def token_details(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Display token details and trade options when a user sends a token address."""
-    user_input = update.message.text.strip()
     user_id = str(update.effective_user.id)
+    user_input = update.message.text.strip()
 
     try:
-        chain = detect_chain(user_input)
+        chain = detect_chain(user_input)  # This raises ValueError if not a valid address
         unit = "SOL" if chain == "solana" else "TON"
         result = await get_token_info(user_input)
         if not result:
@@ -36,7 +36,7 @@ async def token_details(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         context.user_data["token_address"] = user_input
         context.user_data["token_info"] = token_info
         context.user_data["chain"] = chain
-        context.user_data["slippage"] = 5  # Default slippage
+        context.user_data["slippage"] = 5
         context.user_data["buy_amount"] = default_amount
 
         keyboard = [
@@ -52,9 +52,7 @@ async def token_details(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         logger.info(f"Displayed token details for {user_input} to user {user_id}")
 
     except ValueError:
-        await update.message.reply_text("Invalid token address.")
+        raise  # Let the dispatcher handle this
     except Exception as e:
         logger.error(f"Error in token_details for {user_id}: {str(e)}")
         await update.message.reply_text("An error occurred. Try again later.")
-
-token_details_handler = MessageHandler(filters.TEXT & ~filters.COMMAND, token_details)

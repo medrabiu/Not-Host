@@ -10,15 +10,18 @@ from blockchain.ton.trade import execute_ton_swap
 
 logger = logging.getLogger(__name__)
 
-# Conversation states (reintroduced SET_SLIPPAGE)
+# Conversation states
 TOKEN_ADDRESS, SET_AMOUNT, SET_SLIPPAGE, CONFIRM = range(4)
+
+# Import MAIN_MENU from main.py (we'll assume it's available)
+from handlers.constants import MAIN_MENU  # Adjust this import based on your file structure
 
 async def buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
     user_id = str(update.effective_user.id)
 
-    if query.data == "execute_trade":
+    if query.data == "buy_execute_trade":
         return await confirm_buy(update, context)
 
     if query.data.startswith("set_amount"):
@@ -65,7 +68,7 @@ async def token_address_handler(update: Update, context: ContextTypes.DEFAULT_TY
     keyboard = [
         [InlineKeyboardButton(f"Slippage: {context.user_data['slippage']}%", callback_data="set_slippage"),
          InlineKeyboardButton(f"Amount: {context.user_data['buy_amount']} {unit}", callback_data="set_amount")],
-        [InlineKeyboardButton("Execute Trade", callback_data="execute_trade"),
+        [InlineKeyboardButton("Execute Trade", callback_data="buy_execute_trade"),
          InlineKeyboardButton("Refresh", callback_data="refresh_token")],
         [InlineKeyboardButton("Main Menu", callback_data="main_menu")]
     ]
@@ -130,7 +133,7 @@ async def refresh_token(update: Update, context: ContextTypes.DEFAULT_TYPE, from
     keyboard = [
         [InlineKeyboardButton(f"Slippage: {slippage}%", callback_data="set_slippage"),
          InlineKeyboardButton(f"Amount: {buy_amount} {unit}", callback_data="set_amount")],
-        [InlineKeyboardButton("Execute Trade", callback_data="execute_trade"),
+        [InlineKeyboardButton("Execute Trade", callback_data="buy_execute_trade"),
          InlineKeyboardButton("Refresh", callback_data="refresh_token")],
         [InlineKeyboardButton("Main Menu", callback_data="main_menu")]
     ]
@@ -172,6 +175,7 @@ async def confirm_buy(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
         if chain == "solana":
             swap_result = await execute_solana_swap(wallet, token_address, amount, slippage)
             output_amount = swap_result["output_amount"] / 1_000_000_000
+            entry_price = amount / output_amount if output_amount > 0 else 0.0 
             tx_id = swap_result["tx_id"]
             msg = (
                 f"{formatted_info}\n\n"
@@ -183,6 +187,7 @@ async def confirm_buy(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
         elif chain == "ton":
             swap_result = await execute_ton_swap(wallet, token_address, amount, slippage)
             output_amount = swap_result["output_amount"] / 1_000_000_000
+            entry_price = amount / output_amount if output_amount > 0 else 0.0 
             tx_id = swap_result["tx_id"]
             msg = (
                 f"{formatted_info}\n\n"
@@ -193,6 +198,14 @@ async def confirm_buy(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
             )
         else:
             raise ValueError(f"Unsupported chain: {chain}")
+        
+        # Store position data
+        if "positions" not in context.user_data:
+            context.user_data["positions"] = {}
+        context.user_data["positions"][token_address] = {
+            "entry_price": entry_price,
+            "chain": chain
+        }
 
         await query.edit_message_text(msg, parse_mode="Markdown")
         logger.info(f"User {user_id} executed buy {amount} {unit} of {token_address} on {chain}")
@@ -206,14 +219,15 @@ async def confirm_buy(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
 async def cancel_buy(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
-    await query.edit_message_text("Buy cancelled.", parse_mode="Markdown")
+    await query.edit_message_text("Buy cancelled. Choose an option:", reply_markup=MAIN_MENU, parse_mode="Markdown")
     logger.info(f"User {update.effective_user.id} cancelled buy")
     return ConversationHandler.END
 
+# Define the ConversationHandler separately
 buy_conv_handler = ConversationHandler(
     entry_points=[
         CallbackQueryHandler(buy_handler, pattern="^buy$"),
-        CallbackQueryHandler(buy_handler, pattern="^execute_trade$"),
+        CallbackQueryHandler(buy_handler, pattern="^buy_execute_trade$"),
         CallbackQueryHandler(buy_handler, pattern="^set_amount$"),
         CallbackQueryHandler(buy_handler, pattern="^set_slippage$"),
         CallbackQueryHandler(buy_handler, pattern="^refresh_token$"),
@@ -223,11 +237,10 @@ buy_conv_handler = ConversationHandler(
         SET_AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_amount_handler)],
         SET_SLIPPAGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_slippage_handler)],
         CONFIRM: [
-            CallbackQueryHandler(buy_handler, pattern="^(execute_trade|set_amount|set_slippage|refresh_token)$"),
+            CallbackQueryHandler(buy_handler, pattern="^(buy_execute_trade|set_amount|set_slippage|refresh_token)$"),
             CallbackQueryHandler(cancel_buy, pattern="^main_menu$"),
         ]
     },
     fallbacks=[CallbackQueryHandler(cancel_buy, pattern="^main_menu$")]
 )
 
-buy_handler = buy_conv_handler
