@@ -8,6 +8,7 @@ from solders.keypair import Keypair
 from blockchain.ton.withdraw import send_ton_transaction
 import base58
 from services.token_info import get_token_info, detect_chain
+from services.ton_swap import execute_ton_swap, execute_jetton_to_ton_swap
 from langchain_core.tools import tool
 
 logger = logging.getLogger(__name__)
@@ -137,3 +138,65 @@ async def get_token_details(token_address: str) -> str:
         logger.error(f"Error fetching token details for {token_address}: {str(e)}")
         return "Whoops, hit a snag grabbing that token’s deets!"
     
+@tool
+async def buy_ton_tokens(user_id: int, token_address: str, amount_ton: float, slippage: float = 0.5) -> str:
+    """Buy tokens on TON using STON.fi DEX with the specified amount of TON."""
+    if amount_ton <= 0:
+        return "Can’t buy with zero TON, genius! Gimme a real amount."
+    
+    try:
+        chain = detect_chain(token_address)
+        if chain != "ton":
+            return "Oi, mate! That’s not a TON token address. Stick to TON for now!"
+        
+        async with await get_async_session() as session:
+            wallet = await get_wallet(str(user_id), "ton", session)
+            if not wallet:
+                return "No TON wallet found, fam! Set one up first!"
+            
+            slippage_bps = int(slippage * 100)  # Convert percentage to basis points (e.g., 0.5% -> 50 bps)
+            result = await execute_ton_swap(wallet, token_address, amount_ton, slippage_bps)
+            tx_hash = result["tx_id"]
+            gas_fees = result["gas_fees_used"] / 10**9  # Convert nanoTON to TON
+            return (
+                f"Snagged some tokens, bruv!\n"
+                f"Spent: {amount_ton:.6f} TON + {gas_fees:.6f} TON gas\n"
+                f"Tx: [TONScan](https://tonscan.org/tx/{tx_hash})"
+            )
+    except ValueError as e:
+        return f"Buy flopped! {str(e)}"
+    except Exception as e:
+        logger.error(f"Buy failed for user {user_id}, token {token_address}: {str(e)}")
+        return f"Oof, buy went sideways! Error: {str(e)}"
+
+@tool
+async def sell_ton_tokens(user_id: int, token_address: str, amount_tokens: float, slippage: float = 0.5) -> str:
+    """Sell tokens on TON for TON using STON.fi DEX."""
+    if amount_tokens <= 0:
+        return "Can’t sell zero tokens, mate! Gimme a real amount."
+    
+    try:
+        chain = detect_chain(token_address)
+        if chain != "ton":
+            return "Yo, that’s not a TON token! Keep it TON for now, yeah?"
+        
+        async with await get_async_session() as session:
+            wallet = await get_wallet(str(user_id), "ton", session)
+            if not wallet:
+                return "No TON wallet found, fam! Set one up first!"
+            
+            slippage_bps = int(slippage * 100)  # Convert percentage to basis points
+            result = await execute_jetton_to_ton_swap(wallet, token_address, amount_tokens, slippage_bps)
+            tx_hash = result["tx_id"]
+            gas_fees = result["gas_fees_used"] / 10**9  # Convert nanoTON to TON
+            return (
+                f"Dumped those tokens, fam!\n"
+                f"Sold: {amount_tokens:.6f} tokens, Gas: {gas_fees:.6f} TON\n"
+                f"Tx: [TONScan](https://tonscan.org/tx/{tx_hash})"
+            )
+    except ValueError as e:
+        return f"Sell tanked! {str(e)}"
+    except Exception as e:
+        logger.error(f"Sell failed for user {user_id}, token {token_address}: {str(e)}")
+        return f"Whoops, sell hit the skids! Error: {str(e)}"
+
