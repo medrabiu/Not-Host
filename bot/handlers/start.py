@@ -28,7 +28,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     Handle the /start command, onboard new users or greet returning ones.
 
     New Users: Welcome message -> Agree -> Wallet setup -> Trading menu.
-    Returning Users: Direct to trading menu with wallet info.
+    Returning Users: Ensure wallets exist, then direct to trading menu with wallet info.
     """
     try:
         user = update.effective_user
@@ -48,13 +48,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         async with await get_async_session() as session:
             db_user = await get_user(telegram_id, session)
             if not db_user:
-
-
                 # New user: Add to DB and show welcome message with Agree button
                 await add_user(telegram_id, session)
                 await session.commit()
 
-               
                 if ADMIN_TELEGRAM_ID:
                     admin_msg = f"🚀 *New User Signed Up!*\n\n🆔 ID: `{telegram_id}`\n👤 Username: @{username}"
                     await context.bot.send_message(chat_id=ADMIN_TELEGRAM_ID, text=admin_msg, parse_mode="Markdown")
@@ -63,7 +60,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                     "👋 *Welcome to Not-Cotrader!*\n\n"
                     "Your multi-chain trading companion for lightning-fast trades on TON and Solana.\n"
                     "Swap tokens, track positions, and manage wallets—all in one place.\n\n"
-                    "By clicking \" Agree and Continue\", you accept our terms and conditions."
+                    "By clicking \"Agree and Continue\", you accept our terms and conditions."
                 )
                 keyboard = InlineKeyboardMarkup([
                     [InlineKeyboardButton("✅ Agree and Continue", callback_data="agree")]
@@ -71,12 +68,22 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 await update.message.reply_text(welcome_msg, reply_markup=keyboard, parse_mode="Markdown")
                 logger.info(f"Sent welcome message to new user {telegram_id}")
             else:
-                # Returning user: Show trading interface with wallet info and balances
+                # Returning user: Ensure wallets exist, then show trading interface
+                sol_wallet = await get_wallet(telegram_id, "solana", session)
+                if not sol_wallet:
+                    sol_wallet = await create_user_wallet(telegram_id, "solana", session)
+                    await session.commit()
+                    logger.info(f"Created Solana wallet for returning user {telegram_id}")
+
+                ton_wallet = await get_wallet(telegram_id, "ton", session)
+                if not ton_wallet:
+                    ton_wallet = await create_user_wallet(telegram_id, "ton", session)
+                    await session.commit()
+                    logger.info(f"Created TON wallet for returning user {telegram_id}")
+
+                # Fetch prices and wallet info
                 sol_price = await get_sol_price()
                 ton_price = await get_ton_price()
-                
-                sol_wallet = await get_wallet(telegram_id, "solana", session)
-                ton_wallet = await get_wallet(telegram_id, "ton", session)
                 sol_address = sol_wallet.public_key if sol_wallet else "Not set"
                 ton_address = ton_wallet.public_key if ton_wallet else "Not set"
 
@@ -97,7 +104,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     except Exception as e:
         logger.error(f"Error in start handler: {str(e)}", exc_info=True)
         await update.message.reply_text("An error occurred. Please try again.")
-
+        
 async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle callback queries from start flow."""
     query = update.callback_query
