@@ -6,6 +6,9 @@ from services.wallet_management import create_user_wallet, get_wallet
 from services.utils import get_wallet_balance_and_usd, get_sol_price, get_ton_price  # Added price imports
 logger = logging.getLogger(__name__)
 
+import os
+ADMIN_TELEGRAM_ID = os.getenv("ADMIN_TELEGRAM_ID")
+
 # Updated trading menu (aligned with main.py)
 TRADING_MENU = InlineKeyboardMarkup([
     [InlineKeyboardButton("🟩 Buy", callback_data="buy"),
@@ -40,14 +43,22 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         context.user_data["last_start"] = update.message.message_id
 
         telegram_id = str(user.id)
+        username = user.username if user.username else "No username"
+
         async with await get_async_session() as session:
             db_user = await get_user(telegram_id, session)
             if not db_user:
 
-                
+
                 # New user: Add to DB and show welcome message with Agree button
                 await add_user(telegram_id, session)
                 await session.commit()
+
+               
+                if ADMIN_TELEGRAM_ID:
+                    admin_msg = f"🚀 *New User Signed Up!*\n\n🆔 ID: `{telegram_id}`\n👤 Username: @{username}"
+                    await context.bot.send_message(chat_id=ADMIN_TELEGRAM_ID, text=admin_msg, parse_mode="Markdown")
+                    
                 welcome_msg = (
                     "👋 *Welcome to Not-Cotrader!*\n\n"
                     "Your multi-chain trading companion for lightning-fast trades on TON and Solana.\n"
